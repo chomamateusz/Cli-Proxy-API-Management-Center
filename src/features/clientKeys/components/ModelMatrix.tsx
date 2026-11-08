@@ -10,7 +10,6 @@ import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import type { ResolvedTheme } from '@/types';
 import type { ClientKeyPolicy, ModelCatalog, PolicyCredential } from '@/types/clientKeys';
 import {
-  blockAllPattern,
   countPatterns,
   deriveModelCell,
   planModelToggle,
@@ -21,7 +20,7 @@ import {
 import { isUnrestrictedAllowlist } from '../policyMatching';
 import type { PolicyChange } from '../hooks/useClientKeysData';
 import { useGridRovingFocus } from '../hooks/useGridRovingFocus';
-import { keyLabelFor, modelCellId } from '../presentation';
+import { blockAllBanners, keyLabelFor, modelCellId } from '../presentation';
 import { MatrixCell } from './MatrixCell';
 import { MatrixToolbar } from './MatrixToolbar';
 import styles from './ModelMatrix.module.scss';
@@ -125,10 +124,7 @@ export function ModelMatrix({
     );
   }
 
-  const blockedAll = policies.flatMap((policy) => {
-    const pattern = blockAllPattern(policy.excludedModels);
-    return pattern ? [{ key: keyLabelFor(t, policy), pattern }] : [];
-  });
+  const blockedAll = blockAllBanners(t, policies);
   const providerOptions = catalog.groups.map((group) => ({
     value: group.provider,
     label: getTypeLabel(t, group.provider),
@@ -141,8 +137,8 @@ export function ModelMatrix({
         <p className={styles.viewDescription}>{t('client_keys.matrix.description')}</p>
       </header>
       {blockedAll.map((item) => (
-        <div key={item.key} className={styles.warningBanner} role="note">
-          {t('client_keys.matrix.all_blocked_banner', item)}
+        <div key={item.id} className={styles.warningBanner} role="note">
+          {t('client_keys.matrix.all_blocked_banner', { key: item.key, pattern: item.pattern })}
         </div>
       ))}
       {credentialsError !== null ? (

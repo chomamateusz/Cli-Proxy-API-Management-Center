@@ -1,3 +1,6 @@
+$key-col-width: 220px;
+$model-col-width: 34px;
+
 .matrix,
 .loading {
   display: flex;
@@ -87,11 +90,11 @@
 }
 
 .keyCol {
-  width: 220px;
+  width: $key-col-width;
 }
 
 .modelCol {
-  width: 34px;
+  width: $model-col-width;
 }
 
 .corner {
@@ -229,6 +232,7 @@
   padding: 6px 0;
   text-align: center;
   vertical-align: middle;
+  scroll-margin-left: $key-col-width;
   transition: background-color var(--dur-hover) var(--ease-out-strong);
 
   &:hover {
@@ -238,6 +242,11 @@
 
 .check {
   justify-content: center;
+
+  input {
+    scroll-margin-left: calc(#{$key-col-width} + 8px);
+    scroll-margin-right: $model-col-width;
+  }
 }
 
 .cellPattern {

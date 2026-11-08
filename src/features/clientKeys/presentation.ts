@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next';
 import type { ClientKeyPolicy, PolicyListField } from '@/types/clientKeys';
-import { rowReadonlyReason, type CredentialCell, type ModelCell } from './matrix';
+import { blockAllPattern, rowReadonlyReason, type CredentialCell, type ModelCell } from './matrix';
 
 export const CLIENT_KEYS_VIEWS = ['keys', 'matrix', 'credentials'] as const;
 export type ClientKeysView = (typeof CLIENT_KEYS_VIEWS)[number];
@@ -58,6 +58,15 @@ export function projectPatternList(
 
 export const keyLabelFor = (t: TFunction, policy: ClientKeyPolicy) =>
   policy.name || t('client_keys.matrix.unnamed_key', { index: policy.index + 1 });
+
+export function blockAllBanners(t: TFunction, policies: ClientKeyPolicy[]) {
+  return policies.flatMap((policy) => {
+    const pattern = blockAllPattern(policy.excludedModels);
+    return pattern
+      ? [{ id: `${policy.index}-${policy.name}`, key: keyLabelFor(t, policy), pattern }]
+      : [];
+  });
+}
 
 export const policySelectValue = (policy: ClientKeyPolicy) => policy.name || `@${policy.index}`;
 

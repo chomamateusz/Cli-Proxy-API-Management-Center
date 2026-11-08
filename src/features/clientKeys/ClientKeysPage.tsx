@@ -213,7 +213,8 @@ export function ClientKeysPage() {
     }
     if (!ready) {
       return (
-        <div className={styles.skeletons} aria-busy="true" aria-label={t('client_keys.loading')}>
+        <div className={styles.skeletons} role="status">
+          <span className={styles.srOnly}>{t('client_keys.loading')}</span>
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} height={56} />
           ))}

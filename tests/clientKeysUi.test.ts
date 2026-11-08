@@ -16,6 +16,7 @@ import { nextGridPosition } from '../src/features/clientKeys/hooks/useGridRoving
 import { buildModelCatalog } from '../src/features/clientKeys/matrix';
 import { KeyPolicySheet } from '../src/features/clientKeys/components/KeyPolicySheet';
 import {
+  blockAllBanners,
   patternCellId,
   pendingPatternValues,
   policyGuardKey,
@@ -185,6 +186,43 @@ describe('ModelMatrix', () => {
     const unnamed = checkboxes.filter((input) => input.includes('aria-label="Unnamed key #3'));
     expect(unnamed).toHaveLength(CATALOG.ids.length);
     expect(unnamed.every((input) => input.includes('aria-disabled="true"'))).toBe(true);
+  });
+});
+
+describe('ModelMatrix block-all banners', () => {
+  const duplicates = [
+    policy(0, 'dup', { excludedModels: ['*'] }),
+    policy(1, 'dup', { excludedModels: ['**'] }),
+    policy(2, 'open'),
+  ];
+
+  test('duplicate names get distinct banner ids', () => {
+    const banners = blockAllBanners(i18n.t, duplicates);
+    expect(banners.map((banner) => banner.key)).toEqual(['dup', 'dup']);
+    expect(new Set(banners.map((banner) => banner.id)).size).toBe(2);
+  });
+
+  test('every blocked key gets its own banner', () => {
+    const html = render(
+      createElement(ModelMatrix, {
+        policies: duplicates,
+        credentials: [WORK, CODEX],
+        catalog: CATALOG,
+        catalogProgress: null,
+        catalogFailures: [],
+        credentialsError: null,
+        pending: new Map(),
+        cellErrors: new Map(),
+        nowMs: NOW,
+        theme: 'light',
+        canIssue: true,
+        onIssue: noop,
+        onRetryCatalog: noop,
+        onEditPolicy: noop,
+        applyPolicyChange: () => true,
+      })
+    );
+    expect(html.match(/dup blocks every model/g)).toHaveLength(2);
   });
 });
 
