@@ -10,7 +10,7 @@ import type {
 } from '@/types/clientKeys';
 import type { PolicyChange } from '../hooks/useClientKeysData';
 import { rowReadonlyReason, summarizeRow } from '../matrix';
-import { allowsCredential, modelNames, policyMatches } from '../policyMatching';
+import { allowsCredential, countModelMatches, policyMatches } from '../policyMatching';
 import {
   keyLabelFor,
   patternCellId,
@@ -83,8 +83,7 @@ export function KeyPolicySheet({
     value: credential.writeToken,
     label: credential.displayName,
   }));
-  const countModels = (value: string) =>
-    catalog.ids.filter((id) => policyMatches([value], modelNames(id)).length > 0).length;
+  const countModels = (value: string) => countModelMatches(catalog.ids, value);
   const countCredentials = (value: string) =>
     credentials.filter((credential) => policyMatches([value], credential.identityNames).length > 0)
       .length;

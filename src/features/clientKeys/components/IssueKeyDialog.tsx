@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
+import { MODAL_CLOSE_ANIMATION_MS, Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { useNow } from '@/hooks/useNow';
 import type { IssueKeyInput, IssuedKeySecret } from '@/types/clientKeys';
@@ -10,7 +10,7 @@ import { formatRelativeInstant } from '@/utils/quota/relativeTime';
 import { classifyClientKeyError, clientKeyErrorMessage } from '../errors';
 import { formatKeyInstant } from '../formatInstant';
 import { validateKeyName } from '../issueValidation';
-import { wildcardMatch } from '../policyMatching';
+import { countModelMatches } from '../policyMatching';
 import { DEFAULT_TTL, TTL_PRESETS, parseTtl, previewExpiry } from '../ttl';
 import { IssueKeyReveal, IssueKeyRevealFooter } from './IssueKeyReveal';
 import { PolicyPatternEditor } from './PolicyPatternEditor';
@@ -65,6 +65,7 @@ export function IssueKeyDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
   const expiryOptions = useMemo(
@@ -91,10 +92,11 @@ export function IssueKeyDialog({
     return () => window.clearTimeout(timer);
   }, [nameId, open]);
 
-  const close = () => {
-    setSecret(null);
-    onClose();
-  };
+  useEffect(() => {
+    if (open || secret === null) return;
+    const timer = window.setTimeout(() => setSecret(null), MODAL_CLOSE_ANIMATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, secret]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,6 +116,7 @@ export function IssueKeyDialog({
         models: modelsMode === 'all' ? ['*'] : models,
       });
       setSecret(result.secret);
+      setRevealed(true);
     } catch (err) {
       const classified = classifyClientKeyError(err);
       if (classified.kind === 'name_exists') setNameError(t(NAME_ERRORS.taken));
@@ -125,18 +128,18 @@ export function IssueKeyDialog({
     }
   };
 
-  if (secret !== null) {
+  if (revealed) {
     return (
       <Modal
         open={open}
         title={t('client_keys.issue.success_title')}
-        onClose={close}
+        onClose={onClose}
         width={560}
         closeDisabled={!acknowledged}
-        footer={<IssueKeyRevealFooter acknowledged={acknowledged} onDone={close} />}
+        footer={<IssueKeyRevealFooter acknowledged={acknowledged} onDone={onClose} />}
       >
         <IssueKeyReveal
-          secret={secret}
+          secret={secret ?? ''}
           acknowledged={acknowledged}
           onAcknowledge={setAcknowledged}
         />
@@ -148,12 +151,12 @@ export function IssueKeyDialog({
     <Modal
       open={open}
       title={t('client_keys.issue.title')}
-      onClose={close}
+      onClose={onClose}
       width={560}
       closeDisabled={submitting}
       footer={
         <>
-          <Button variant="ghost" onClick={close} disabled={submitting}>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
             {t('common.cancel')}
           </Button>
           <Button type="submit" form={formId} loading={submitting}>
@@ -249,7 +252,7 @@ export function IssueKeyDialog({
             hint={t('client_keys.sheet.allow_models_hint')}
             values={models}
             candidates={candidates}
-            matchCount={(value) => catalogIds.filter((id) => wildcardMatch(value, id)).length}
+            matchCount={(value) => countModelMatches(catalogIds, value)}
             onAdd={(value) => {
               setModels((current) => [...current, value]);
               setModelsError(null);

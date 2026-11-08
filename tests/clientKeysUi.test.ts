@@ -242,6 +242,12 @@ describe('IssueKeyReveal', () => {
     expect(html).toContain('I have stored this key');
   });
 
+  test('the Copy button is described by the one-time warning', () => {
+    const describedBy = html.match(/<button[^>]*aria-describedby="([^"]+)"/)?.[1] ?? '';
+    expect(describedBy).not.toBe('');
+    expect(html).toContain(`<p id="${describedBy}">This is the only time the key is shown.`);
+  });
+
   test('Done stays disabled until acknowledged', () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*><span>Done<\/span><\/button>/);
   });

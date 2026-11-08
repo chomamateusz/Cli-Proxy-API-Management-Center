@@ -61,6 +61,10 @@ export function allowsModel(p: PolicyLists, model: string): boolean {
   return p.models.length === 0 || policyMatches(p.models, names).length > 0;
 }
 
+export function countModelMatches(modelIds: readonly string[], pattern: string): number {
+  return modelIds.filter((id) => policyMatches([pattern], modelNames(id)).length > 0).length;
+}
+
 export function goBase(path: string): string {
   if (path === '') return '.';
   const trimmed = path.replace(/\/+$/, '');

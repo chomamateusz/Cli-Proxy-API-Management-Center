@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   allowsCredential,
   allowsModel,
+  countModelMatches,
   isUnrestrictedAllowlist,
   modelBaseName,
   wildcardMatch,
@@ -150,5 +151,15 @@ describe('isUnrestrictedAllowlist', () => {
     [['*', 'x'], true],
   ] as const)('%p', (models, want) => {
     expect(isUnrestrictedAllowlist(models)).toBe(want);
+  });
+});
+
+describe('countModelMatches', () => {
+  test('counts a suffixed catalog id through its base name, like allowsModel', () => {
+    const ids = ['gpt-5', 'gpt-5(high)', 'gpt-5-mini', 'claude-opus'];
+    expect(countModelMatches(ids, 'gpt-5')).toBe(2);
+    expect(ids.filter((id) => allowsModel(policy({ models: ['gpt-5'] }), id))).toHaveLength(2);
+    expect(countModelMatches(ids, 'gpt-*')).toBe(3);
+    expect(countModelMatches(ids, 'zzz')).toBe(0);
   });
 });

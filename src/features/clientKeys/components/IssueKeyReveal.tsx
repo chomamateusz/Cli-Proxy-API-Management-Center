@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -18,7 +18,13 @@ interface IssueKeyRevealProps {
 export function IssueKeyReveal({ secret, acknowledged, onAcknowledge }: IssueKeyRevealProps) {
   const { t } = useTranslation();
   const inputId = useId();
+  const copyId = useId();
+  const warningId = useId();
   const [copyState, setCopyState] = useState<CopyState>('idle');
+
+  useEffect(() => {
+    document.getElementById(copyId)?.focus();
+  }, [copyId]);
 
   const copy = async () => {
     setCopyState('idle');
@@ -46,7 +52,13 @@ export function IssueKeyReveal({ secret, acknowledged, onAcknowledge }: IssueKey
         onFocus={(event) => event.currentTarget.select()}
       />
       <div className={styles.copyRow}>
-        <Button variant="secondary" size="sm" onClick={() => void copy()}>
+        <Button
+          id={copyId}
+          variant="secondary"
+          size="sm"
+          aria-describedby={warningId}
+          onClick={() => void copy()}
+        >
           <span className={styles.buttonContent}>
             <IconCopy size={14} />
             {copyState === 'copied' ? t('client_keys.issue.copied') : t('client_keys.issue.copy')}
@@ -65,7 +77,7 @@ export function IssueKeyReveal({ secret, acknowledged, onAcknowledge }: IssueKey
       </div>
       <div className={styles.warning}>
         <IconAlertTriangle size={16} />
-        <p>{t('client_keys.issue.secret_warning')}</p>
+        <p id={warningId}>{t('client_keys.issue.secret_warning')}</p>
       </div>
       <SelectionCheckbox
         checked={acknowledged}
