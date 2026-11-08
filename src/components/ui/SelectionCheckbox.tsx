@@ -9,6 +9,8 @@ interface SelectionCheckboxProps {
   ariaLabel?: string;
   title?: string;
   disabled?: boolean;
+  ariaDisabled?: boolean;
+  tabIndex?: number;
   className?: string;
   labelClassName?: string;
 }
@@ -20,16 +22,19 @@ export function SelectionCheckbox({
   ariaLabel,
   title,
   disabled = false,
+  ariaDisabled = false,
+  tabIndex,
   className,
   labelClassName,
 }: SelectionCheckboxProps) {
-  const rootClassName = [styles.root, disabled ? styles.disabled : '', className]
+  const rootClassName = [styles.root, disabled || ariaDisabled ? styles.disabled : '', className]
     .filter(Boolean)
     .join(' ');
   const boxClassName = [styles.box, checked ? styles.boxChecked : ''].filter(Boolean).join(' ');
   const textClassName = [styles.label, labelClassName].filter(Boolean).join(' ');
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (ariaDisabled) return;
     onChange(event.target.checked);
   };
 
@@ -41,6 +46,8 @@ export function SelectionCheckbox({
         checked={checked}
         onChange={handleChange}
         aria-label={ariaLabel}
+        aria-disabled={ariaDisabled || undefined}
+        tabIndex={tabIndex}
         disabled={disabled}
       />
       <span className={boxClassName}>{checked ? <IconCheck size={12} /> : null}</span>

@@ -20,11 +20,14 @@ interface AutocompleteInputProps {
   disabled?: boolean;
   hint?: string;
   error?: string;
+  invalid?: boolean;
+  describedBy?: string;
   className?: string;
   wrapperClassName?: string;
   wrapperStyle?: React.CSSProperties;
   id?: string;
   rightElement?: ReactNode;
+  submitOnEnter?: boolean;
 }
 
 export function AutocompleteInput({
@@ -36,11 +39,14 @@ export function AutocompleteInput({
   disabled,
   hint,
   error,
+  invalid,
+  describedBy,
   className = '',
   wrapperClassName = '',
   wrapperStyle,
   id,
   rightElement,
+  submitOnEnter = false,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -128,7 +134,7 @@ export function AutocompleteInput({
         e.preventDefault();
         handleSelect(filteredOptions[highlightedIndex].value);
       } else if (isOpen) {
-        e.preventDefault();
+        if (!submitOnEnter) e.preventDefault();
         setIsOpen(false);
       }
     } else if (e.key === 'Escape') {
@@ -151,6 +157,8 @@ export function AutocompleteInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           autoComplete="off"
           style={{ paddingRight: 32 }}
         />

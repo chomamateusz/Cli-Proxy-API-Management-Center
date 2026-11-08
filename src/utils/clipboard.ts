@@ -28,21 +28,21 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     textarea.style.border = '0';
 
     document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-    const copied = document.execCommand('copy');
-    document.body.removeChild(textarea);
-
-    if (activeElement?.focus) {
-      try {
-        activeElement.focus();
-      } catch {
-        // ignore
+    try {
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      return document.execCommand('copy');
+    } finally {
+      document.body.removeChild(textarea);
+      if (activeElement?.focus) {
+        try {
+          activeElement.focus();
+        } catch {
+          // ignore
+        }
       }
     }
-
-    return copied;
   } catch {
     return false;
   }

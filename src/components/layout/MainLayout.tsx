@@ -31,6 +31,7 @@ import {
   IconSidebarStore,
   IconSidebarSystem,
   IconChevronDown,
+  IconKey,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import {
@@ -63,6 +64,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   oauth: <IconSidebarOauth size={18} />,
   quota: <IconSidebarQuota size={18} />,
   routing: <IconSidebarRouting size={18} />,
+  clientKeys: <IconKey size={18} />,
   plugins: <IconSidebarPlugins size={18} />,
   pluginStore: <IconSidebarStore size={18} />,
   config: <IconSidebarConfig size={18} />,
@@ -642,6 +644,12 @@ export function MainLayout() {
           labelKey: 'nav.routing',
           metaKey: 'nav_meta.routing',
           icon: sidebarIcons.routing,
+        },
+        {
+          path: '/client-keys',
+          labelKey: 'nav.client_keys',
+          metaKey: 'nav_meta.client_keys',
+          icon: sidebarIcons.clientKeys,
         },
         ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
       ],

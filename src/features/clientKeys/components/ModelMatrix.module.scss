@@ -1,0 +1,346 @@
+$key-col-width: 220px;
+$model-col-width: 34px;
+
+.matrix,
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.loading p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.warningBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: $radius-md;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+
+  :global(.form-group) {
+    margin-bottom: 0;
+  }
+}
+
+.filterInput {
+  width: 240px;
+}
+
+.providerFilter {
+  width: 200px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendSwatch {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: $radius-sm;
+  border: 1px solid var(--border-color);
+}
+
+.legendAllowed {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.grid {
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+.keyCol {
+  width: $key-col-width;
+}
+
+.modelCol {
+  width: $model-col-width;
+}
+
+.corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--muted-bg);
+  box-shadow: 1px 0 0 var(--border-color);
+}
+
+.grid .groupHead {
+  padding: 8px 6px;
+  text-align: left;
+  border-left: 1px solid var(--border-color);
+}
+
+.groupLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.groupCount {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.grid .modelHead {
+  padding: 8px 0;
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.modelId {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-inline-size: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.rowHead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  background: var(--bg-primary);
+  box-shadow: 1px 0 0 var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 400;
+}
+
+.keyName,
+.keyUnnamed {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.keyUnnamed {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.rowMeta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.badge,
+.badgeDanger,
+.badgeMuted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: $radius-full;
+  font-size: 11px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.badgeDanger {
+  background: var(--destructive-10);
+  border-color: var(--destructive-30);
+  color: var(--destructive-color);
+}
+
+.badgeMuted {
+  background: var(--muted-bg);
+}
+
+.patternsButton {
+  margin-top: 2px;
+  padding: 2px 6px;
+}
+
+.buttonContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.grid .cell {
+  position: relative;
+  padding: 6px 0;
+  text-align: center;
+  vertical-align: middle;
+  scroll-margin-left: $key-col-width;
+  transition: background-color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover {
+    background-color: var(--bg-hover);
+  }
+}
+
+.check {
+  justify-content: center;
+
+  input {
+    scroll-margin-left: calc(#{$key-col-width} + 8px);
+    scroll-margin-right: $model-col-width;
+  }
+}
+
+.cellPattern {
+  background: var(--destructive-10);
+  outline: 1px dashed var(--destructive-30);
+  outline-offset: -3px;
+
+  .lockIcon {
+    color: var(--destructive-color);
+  }
+}
+
+.cellMuted {
+  background: var(--muted-bg);
+
+  .lockIcon {
+    color: var(--text-tertiary);
+  }
+}
+
+.grid .cellPattern,
+.grid .cellMuted {
+  &:hover {
+    background: var(--muted-bg);
+  }
+}
+
+.lockIcon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  pointer-events: none;
+}
+
+.unreachableDot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: $radius-full;
+  background: var(--warning-color);
+  pointer-events: none;
+}
+
+.cellPending {
+  cursor: progress;
+
+  label {
+    cursor: progress;
+  }
+}
+
+.spinner {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  color: var(--primary-color);
+  pointer-events: none;
+}
+
+.grid .cellError {
+  outline: 2px solid var(--error-color);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid .cell {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}
+
+.viewHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.viewDescription {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
