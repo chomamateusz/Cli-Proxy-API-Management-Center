@@ -1810,6 +1810,7 @@
       "unknown_entry": "不在目录中",
       "duplicate_entry": "该条目已在列表中。",
       "empty_value": "请输入一个值。",
+      "change_rejected": "现在无法应用此更改。请等待进行中的更改完成，或重新加载页面。",
       "saving": "保存中…",
       "readonly_notice": "此密钥在这里为只读（{{reason}}）。请在配置中编辑。",
       "first_allow_warning": "这会将密钥限制为仅能使用匹配的模型。",

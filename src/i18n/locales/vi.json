@@ -1767,6 +1767,7 @@
       "unknown_entry": "Không có trong danh mục",
       "duplicate_entry": "Mục này đã có trong danh sách.",
       "empty_value": "Hãy nhập một giá trị.",
+      "change_rejected": "Hiện chưa thể áp dụng thay đổi này. Hãy chờ thay đổi đang xử lý hoàn tất hoặc tải lại trang.",
       "saving": "Đang lưu…",
       "readonly_notice": "Khóa này chỉ đọc ở đây ({{reason}}). Hãy sửa trong cấu hình.",
       "first_allow_warning": "Thao tác này giới hạn khóa chỉ dùng các mô hình khớp.",

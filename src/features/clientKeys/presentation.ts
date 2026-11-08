@@ -22,6 +22,40 @@ export const credentialCellId = (keyName: string, token: string) =>
 export const patternCellId = (keyName: string, field: PolicyListField, value: string) =>
   `p\u0001${keyName}\u0001${field}\u0001${value}`;
 
+const patternCellPrefix = (keyName: string, field: PolicyListField) =>
+  patternCellId(keyName, field, '');
+
+export function pendingPatternValues(
+  cellIds: Iterable<string>,
+  keyName: string,
+  field: PolicyListField
+): string[] {
+  const prefix = patternCellPrefix(keyName, field);
+  return [...cellIds].filter((id) => id.startsWith(prefix)).map((id) => id.slice(prefix.length));
+}
+
+export function patternErrors(
+  cellErrors: ReadonlyMap<string, string>,
+  keyName: string,
+  field: PolicyListField
+): ReadonlyMap<string, string> {
+  const prefix = patternCellPrefix(keyName, field);
+  return new Map(
+    [...cellErrors]
+      .filter(([id]) => id.startsWith(prefix))
+      .map(([id, message]) => [id.slice(prefix.length), message])
+  );
+}
+
+export function projectPatternList(
+  values: readonly string[],
+  pendingValues: readonly string[]
+): string[] {
+  const removing = new Set(pendingValues.filter((value) => values.includes(value)));
+  const adding = pendingValues.filter((value) => !values.includes(value));
+  return [...values.filter((value) => !removing.has(value)), ...adding];
+}
+
 export const keyLabelFor = (t: TFunction, policy: ClientKeyPolicy) =>
   policy.name || t('client_keys.matrix.unnamed_key', { index: policy.index + 1 });
 

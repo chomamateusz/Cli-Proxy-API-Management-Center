@@ -253,8 +253,12 @@ export function IssueKeyDialog({
             onAdd={(value) => {
               setModels((current) => [...current, value]);
               setModelsError(null);
+              return true;
             }}
-            onRemove={(value) => setModels((current) => current.filter((item) => item !== value))}
+            onRemove={(value) => {
+              setModels((current) => current.filter((item) => item !== value));
+              return true;
+            }}
           />
           {modelsError ? <div className="error-box">{modelsError}</div> : null}
         </div>

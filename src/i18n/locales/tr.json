@@ -1811,6 +1811,7 @@
       "unknown_entry": "Katalogda yok",
       "duplicate_entry": "Bu giriş zaten listede.",
       "empty_value": "Bir değer girin.",
+      "change_rejected": "Bu değişiklik şu anda uygulanamıyor. Bekleyen değişikliğin bitmesini bekleyin veya sayfayı yeniden yükleyin.",
       "saving": "Kaydediliyor…",
       "readonly_notice": "Bu anahtar burada salt okunur ({{reason}}). Yapılandırmada düzenleyin.",
       "first_allow_warning": "Bu, anahtarı yalnızca eşleşen modellerle sınırlar.",

@@ -1838,6 +1838,7 @@
       "unknown_entry": "不在目錄中",
       "duplicate_entry": "此項目已在清單中。",
       "empty_value": "請輸入一個值。",
+      "change_rejected": "目前無法套用此變更。請等待進行中的變更完成，或重新載入頁面。",
       "saving": "儲存中…",
       "readonly_notice": "此金鑰在這裡為唯讀（{{reason}}）。請在設定中編輯。",
       "first_allow_warning": "這會將金鑰限制為僅能使用符合的模型。",

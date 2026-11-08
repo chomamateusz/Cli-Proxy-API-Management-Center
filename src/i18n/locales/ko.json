@@ -1811,6 +1811,7 @@
       "unknown_entry": "카탈로그에 없음",
       "duplicate_entry": "이미 목록에 있는 항목입니다.",
       "empty_value": "값을 입력하세요.",
+      "change_rejected": "지금은 이 변경을 적용할 수 없습니다. 진행 중인 변경이 끝날 때까지 기다리거나 페이지를 새로 고치세요.",
       "saving": "저장 중…",
       "readonly_notice": "이 키는 여기서 읽기 전용입니다({{reason}}). 설정에서 편집하세요.",
       "first_allow_warning": "이 키는 일치하는 모델만 사용하도록 제한됩니다.",

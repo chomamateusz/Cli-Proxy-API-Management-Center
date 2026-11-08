@@ -25,6 +25,7 @@ interface AutocompleteInputProps {
   wrapperStyle?: React.CSSProperties;
   id?: string;
   rightElement?: ReactNode;
+  submitOnEnter?: boolean;
 }
 
 export function AutocompleteInput({
@@ -41,6 +42,7 @@ export function AutocompleteInput({
   wrapperStyle,
   id,
   rightElement,
+  submitOnEnter = false,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -128,7 +130,7 @@ export function AutocompleteInput({
         e.preventDefault();
         handleSelect(filteredOptions[highlightedIndex].value);
       } else if (isOpen) {
-        e.preventDefault();
+        if (!submitOnEnter) e.preventDefault();
         setIsOpen(false);
       }
     } else if (e.key === 'Escape') {

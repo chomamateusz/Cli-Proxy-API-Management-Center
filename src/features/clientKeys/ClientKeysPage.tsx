@@ -283,6 +283,7 @@ export function ClientKeysPage() {
           catalog={data.catalog}
           focusSection={sheetTarget.section}
           pending={data.pending}
+          cellErrors={data.cellErrors}
           expiresLabel={expiresLabel(sheetPolicy)}
           applyPolicyChange={data.applyPolicyChange}
           onClose={() => setSheetOpen(false)}

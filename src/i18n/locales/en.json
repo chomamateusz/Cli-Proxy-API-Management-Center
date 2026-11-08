@@ -1811,6 +1811,7 @@
       "unknown_entry": "Not in the catalog",
       "duplicate_entry": "This entry is already in the list.",
       "empty_value": "Enter a value.",
+      "change_rejected": "This change cannot be applied right now. Wait for the pending change to finish, or reload the page.",
       "saving": "Saving…",
       "readonly_notice": "This key is read-only here ({{reason}}). Edit it in the configuration.",
       "first_allow_warning": "This restricts the key to matching models only.",

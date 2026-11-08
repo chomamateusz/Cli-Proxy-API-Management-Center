@@ -14,7 +14,13 @@ import { ModelMatrix } from '../src/features/clientKeys/components/ModelMatrix';
 import { toPolicyCredential } from '../src/features/clientKeys/credentials';
 import { nextGridPosition } from '../src/features/clientKeys/hooks/useGridRovingFocus';
 import { buildModelCatalog } from '../src/features/clientKeys/matrix';
-import { policyGuardKey } from '../src/features/clientKeys/presentation';
+import { KeyPolicySheet } from '../src/features/clientKeys/components/KeyPolicySheet';
+import {
+  patternCellId,
+  pendingPatternValues,
+  policyGuardKey,
+  projectPatternList,
+} from '../src/features/clientKeys/presentation';
 import type { ClientKeyPolicy, IssuedKey, PolicyLists } from '../src/types/clientKeys';
 
 const initialLanguage = i18n.language;
@@ -272,6 +278,80 @@ describe('grid keyboard', () => {
     expect(nextGridPosition('Home', false, from, 3, 4)).toEqual({ row: 1, col: 0 });
     expect(nextGridPosition('End', true, from, 3, 4)).toEqual({ row: 2, col: 3 });
     expect(nextGridPosition('Enter', false, from, 3, 4)).toBeNull();
+  });
+});
+
+describe('KeyPolicySheet', () => {
+  const html = renderToStaticMarkup(
+    createElement(KeyPolicySheet, {
+      open: true,
+      policy: POLICIES[1],
+      policies: POLICIES,
+      credentials: [WORK, CODEX],
+      catalog: CATALOG,
+      focusSection: 'models',
+      pending: new Map(),
+      cellErrors: new Map([
+        [patternCellId('ci-runner', 'models', 'claude-*'), 'Could not save claude-*'],
+      ]),
+      expiresLabel: 'Never',
+      applyPolicyChange: () => true,
+      onClose: noop,
+    })
+  );
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+
+  test('every id is unique', () => {
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+  });
+
+  test('every text input has a label pointing at it', () => {
+    const inputs = [...html.matchAll(/<input[^>]*\sid="([^"]+)"[^>]*>/g)].map((match) => match[1]);
+    expect(inputs).toHaveLength(4);
+    for (const id of inputs) {
+      expect(html).toContain(`<label for="${id}">`);
+    }
+  });
+
+  test('sections are labelled by their headings', () => {
+    const labelledBy = [...html.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map(
+      (match) => match[1]
+    );
+    expect(labelledBy).toHaveLength(2);
+    for (const id of labelledBy) {
+      expect(html).toMatch(new RegExp(`<h3[^>]*id="${id}"`));
+    }
+  });
+
+  test('shows a failed pattern change next to its editor', () => {
+    expect(html).toContain('<div class="error-box">Could not save claude-*</div>');
+  });
+});
+
+describe('queued pattern changes', () => {
+  const removalOf = (value: string) => patternCellId('k', 'models', value);
+
+  test('the open-access guard sees removals that are still pending', () => {
+    const values = ['model-a', 'model-b'];
+    expect(policyGuardKey('models', values, 'remove', 'model-b')).toBeNull();
+    const projected = projectPatternList(
+      values,
+      pendingPatternValues([removalOf('model-a')], 'k', 'models')
+    );
+    expect(projected).toEqual(['model-b']);
+    expect(policyGuardKey('models', projected, 'remove', 'model-b')).toBe(
+      'client_keys.sheet.last_allow_warning'
+    );
+  });
+
+  test('pending additions count towards the projected list', () => {
+    const projected = projectPatternList(
+      ['model-a'],
+      pendingPatternValues([removalOf('model-b'), 'p\u0001other\u0001models\u0001x'], 'k', 'models')
+    );
+    expect(projected).toEqual(['model-a', 'model-b']);
+    expect(policyGuardKey('models', projected, 'remove', 'model-a')).toBeNull();
   });
 });
 

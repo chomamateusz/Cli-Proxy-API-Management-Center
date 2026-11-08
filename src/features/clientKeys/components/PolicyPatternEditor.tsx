@@ -15,6 +15,8 @@ export interface PatternCandidate {
   label?: string;
 }
 
+export type PatternChangeResult = boolean | Promise<boolean>;
+
 export interface PolicyPatternEditorProps {
   id: string;
   label: string;
@@ -23,9 +25,10 @@ export interface PolicyPatternEditorProps {
   candidates: readonly PatternCandidate[];
   matchCount: (value: string) => number;
   pendingValues?: ReadonlySet<string>;
+  errors?: ReadonlyMap<string, string>;
   disabled?: boolean;
-  onAdd: (value: string) => void;
-  onRemove: (value: string) => void;
+  onAdd: (value: string) => PatternChangeResult;
+  onRemove: (value: string) => PatternChangeResult;
   guard?: (op: PatternOp, value: string) => string | null;
 }
 
@@ -35,6 +38,11 @@ interface PendingConfirm {
   message: string;
 }
 
+type FocusRequest =
+  | { kind: 'input' }
+  | { kind: 'chip'; index: number }
+  | { kind: 'after-removal'; value: string; index: number };
+
 export function PolicyPatternEditor({
   id,
   label,
@@ -43,6 +51,7 @@ export function PolicyPatternEditor({
   candidates,
   matchCount,
   pendingValues,
+  errors,
   disabled = false,
   onAdd,
   onRemove,
@@ -51,9 +60,13 @@ export function PolicyPatternEditor({
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
+  const [rejected, setRejected] = useState(false);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
   const dropdownOpenRef = useRef(false);
   const confirmRef = useRef<HTMLDivElement | null>(null);
+  const chipsRef = useRef<HTMLDivElement | null>(null);
+  const focusRequestRef = useRef<FocusRequest | null>(null);
   const known = new Set(candidates.map((candidate) => candidate.value.toLowerCase()));
   const trimmed = input.trim();
 
@@ -61,13 +74,52 @@ export function PolicyPatternEditor({
     if (confirm) confirmRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
   }, [confirm]);
 
-  const run = (op: PatternOp, value: string) => {
-    if (op === 'add') {
-      onAdd(value);
-      setInput('');
-    } else {
-      onRemove(value);
+  useEffect(() => {
+    const request = focusRequestRef.current;
+    if (!request) return;
+    focusRequestRef.current = null;
+    const buttons = Array.from(chipsRef.current?.querySelectorAll('button') ?? []);
+    const usable = (button: HTMLButtonElement | undefined) =>
+      button && !button.disabled ? button : undefined;
+    let target: HTMLButtonElement | undefined;
+    if (request.kind === 'chip') {
+      target = usable(buttons[request.index]);
+    } else if (request.kind === 'after-removal') {
+      const after = values.includes(request.value) ? request.index + 1 : request.index;
+      target =
+        buttons.slice(after).find((button) => usable(button)) ??
+        buttons
+          .slice(0, request.index)
+          .reverse()
+          .find((button) => usable(button));
     }
+    (target ?? document.getElementById(id))?.focus();
+  }, [focusTick, id, values]);
+
+  const requestFocus = (request: FocusRequest) => {
+    focusRequestRef.current = request;
+    setFocusTick((tick) => tick + 1);
+  };
+
+  const run = (op: PatternOp, value: string) => {
+    setRejected(false);
+    if (op === 'add') {
+      const result = onAdd(value);
+      if (result === false) {
+        setRejected(true);
+        return;
+      }
+      void Promise.resolve(result).then((saved) => {
+        if (saved) setInput((current) => (current.trim() === value ? '' : current));
+      });
+      return;
+    }
+    const index = values.indexOf(value);
+    if (onRemove(value) === false) {
+      setRejected(true);
+      return;
+    }
+    requestFocus({ kind: 'after-removal', value, index });
   };
 
   const request = (op: PatternOp, value: string) => {
@@ -77,6 +129,21 @@ export function PolicyPatternEditor({
       return;
     }
     run(op, value);
+  };
+
+  const cancelConfirm = (pendingConfirm: PendingConfirm) => {
+    setConfirm(null);
+    requestFocus(
+      pendingConfirm.op === 'add'
+        ? { kind: 'input' }
+        : { kind: 'chip', index: values.indexOf(pendingConfirm.value) }
+    );
+  };
+
+  const applyConfirm = (pendingConfirm: PendingConfirm) => {
+    setConfirm(null);
+    if (pendingConfirm.op === 'add') requestFocus({ kind: 'input' });
+    run(pendingConfirm.op, pendingConfirm.value);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -130,6 +197,14 @@ export function PolicyPatternEditor({
       : t('client_keys.sheet.matches', { count });
   };
 
+  const saveErrors = [
+    ...new Set(
+      [...(errors ?? [])]
+        .filter(([value]) => value === trimmed || values.includes(value))
+        .map(([, message]) => message)
+    ),
+  ];
+
   return (
     <div className={styles.editor} role="group" aria-label={label}>
       <form
@@ -147,6 +222,7 @@ export function PolicyPatternEditor({
           onChange={(next) => {
             setInput(next);
             setInputError(null);
+            setRejected(false);
           }}
           options={[...candidates]}
           placeholder={t('client_keys.sheet.add_placeholder')}
@@ -154,6 +230,7 @@ export function PolicyPatternEditor({
           hint={hint}
           error={inputError ?? undefined}
           wrapperClassName={styles.input}
+          submitOnEnter
         />
         <Button type="submit" variant="secondary" size="sm" disabled={disabled}>
           <span className={styles.buttonContent}>
@@ -169,26 +246,34 @@ export function PolicyPatternEditor({
             : t('client_keys.sheet.matches', { count: matchCount(trimmed) })}
         </p>
       ) : null}
-      <ExcludedModelChipRow>
-        {values.map((value) => {
-          const variant = value.includes('*')
-            ? 'wildcard'
-            : known.has(value.toLowerCase())
-              ? 'exact'
-              : 'unknown';
-          return (
-            <ExcludedModelRuleChip
-              key={value}
-              label={value}
-              variant={variant}
-              detail={chipDetail(value, variant)}
-              onRemove={disabled ? undefined : () => request('remove', value)}
-              removeAriaLabel={t('client_keys.sheet.remove_aria', { value })}
-              disabled={pendingValues?.has(value) || confirm !== null}
-            />
-          );
-        })}
-      </ExcludedModelChipRow>
+      {rejected ? <div className="error-box">{t('client_keys.sheet.change_rejected')}</div> : null}
+      {saveErrors.map((message) => (
+        <div key={message} className="error-box">
+          {message}
+        </div>
+      ))}
+      <div ref={chipsRef}>
+        <ExcludedModelChipRow>
+          {values.map((value) => {
+            const variant = value.includes('*')
+              ? 'wildcard'
+              : known.has(value.toLowerCase())
+                ? 'exact'
+                : 'unknown';
+            return (
+              <ExcludedModelRuleChip
+                key={value}
+                label={value}
+                variant={variant}
+                detail={chipDetail(value, variant)}
+                onRemove={disabled ? undefined : () => request('remove', value)}
+                removeAriaLabel={t('client_keys.sheet.remove_aria', { value })}
+                disabled={pendingValues?.has(value) || confirm !== null}
+              />
+            );
+          })}
+        </ExcludedModelChipRow>
+      </div>
       {confirm ? (
         <div
           ref={confirmRef}
@@ -197,24 +282,16 @@ export function PolicyPatternEditor({
           onKeyDown={(event) => {
             if (event.key !== 'Escape') return;
             event.stopPropagation();
-            setConfirm(null);
+            cancelConfirm(confirm);
           }}
         >
           <IconAlertTriangle size={16} className={styles.confirmIcon} />
           <p className={styles.confirmText}>{confirm.message}</p>
           <div className={styles.confirmActions}>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                const { op, value } = confirm;
-                setConfirm(null);
-                run(op, value);
-              }}
-            >
+            <Button variant="danger" size="sm" onClick={() => applyConfirm(confirm)}>
               {t('client_keys.sheet.confirm_apply')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>
+            <Button variant="ghost" size="sm" onClick={() => cancelConfirm(confirm)}>
               {t('common.cancel')}
             </Button>
           </div>

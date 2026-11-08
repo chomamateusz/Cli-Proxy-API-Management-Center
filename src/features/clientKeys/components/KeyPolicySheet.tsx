@@ -14,7 +14,10 @@ import { allowsCredential, modelNames, policyMatches } from '../policyMatching';
 import {
   keyLabelFor,
   patternCellId,
+  patternErrors,
+  pendingPatternValues,
   policyGuardKey,
+  projectPatternList,
   type PatternOp,
   type PolicySheetSection,
 } from '../presentation';
@@ -29,6 +32,7 @@ interface KeyPolicySheetProps {
   catalog: ModelCatalog;
   focusSection: PolicySheetSection;
   pending: ReadonlyMap<string, unknown>;
+  cellErrors: ReadonlyMap<string, string>;
   expiresLabel: string;
   applyPolicyChange: (change: PolicyChange) => boolean;
   onClose: () => void;
@@ -42,6 +46,7 @@ export function KeyPolicySheet({
   catalog,
   focusSection,
   pending,
+  cellErrors,
   expiresLabel,
   applyPolicyChange,
   onClose,
@@ -86,11 +91,14 @@ export function KeyPolicySheet({
 
   const editor = (field: PolicyListField, labelKey: string, hintKey: string) => {
     const values = policy[field];
-    const pendingValues = new Set(
-      values.filter((value) => pending.has(patternCellId(policy.name, field, value)))
-    );
-    const change = (op: PatternOp, value: string) =>
-      applyPolicyChange({
+    const queued = pendingPatternValues(pending.keys(), policy.name, field);
+    const projected = projectPatternList(values, queued);
+    const change = (op: PatternOp, value: string): false | Promise<boolean> => {
+      let settle: (saved: boolean) => void = () => {};
+      const saved = new Promise<boolean>((resolve) => {
+        settle = resolve;
+      });
+      const accepted = applyPolicyChange({
         keyName: policy.name,
         cellIds: [patternCellId(policy.name, field, value)],
         patch: op === 'add' ? { add: { [field]: [value] } } : { remove: { [field]: [value] } },
@@ -100,22 +108,26 @@ export function KeyPolicySheet({
             : 'client_keys.announce.pattern_removed',
           { key: keyLabel, value }
         ),
+        onSettled: (result) => settle(result),
       });
+      return accepted ? saved : false;
+    };
     const isModels = field === 'models' || field === 'excludedModels';
     return (
       <PolicyPatternEditor
-        id={`${baseId}-${field}`}
+        id={`${baseId}-${field}-input`}
         label={t(labelKey)}
         hint={t(hintKey)}
         values={values}
         candidates={isModels ? modelCandidates : credentialCandidates}
         matchCount={isModels ? countModels : countCredentials}
-        pendingValues={pendingValues}
+        pendingValues={new Set(queued)}
+        errors={patternErrors(cellErrors, policy.name, field)}
         disabled={readonly !== null}
         onAdd={(value) => change('add', value)}
         onRemove={(value) => change('remove', value)}
         guard={(op, value) => {
-          const key = policyGuardKey(field, values, op, value);
+          const key = policyGuardKey(field, projected, op, value);
           return key ? t(key) : null;
         }}
       />
@@ -142,8 +154,13 @@ export function KeyPolicySheet({
             })}
           </div>
         ) : null}
-        <section className={styles.section} aria-labelledby={`${baseId}-models`}>
-          <h3 id={`${baseId}-models`} ref={modelsRef} tabIndex={-1} className={styles.heading}>
+        <section className={styles.section} aria-labelledby={`${baseId}-models-heading`}>
+          <h3
+            id={`${baseId}-models-heading`}
+            ref={modelsRef}
+            tabIndex={-1}
+            className={styles.heading}
+          >
             {t('client_keys.sheet.models_heading')}
           </h3>
           <p className={styles.summary}>{t('client_keys.sheet.summary_models', modelSummary)}</p>
@@ -158,9 +175,9 @@ export function KeyPolicySheet({
             'client_keys.sheet.block_models_hint'
           )}
         </section>
-        <section className={styles.section} aria-labelledby={`${baseId}-credentials`}>
+        <section className={styles.section} aria-labelledby={`${baseId}-credentials-heading`}>
           <h3
-            id={`${baseId}-credentials`}
+            id={`${baseId}-credentials-heading`}
             ref={credentialsRef}
             tabIndex={-1}
             className={styles.heading}
