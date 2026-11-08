@@ -317,3 +317,22 @@
     animation: none;
   }
 }
+
+.viewHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.viewDescription {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}

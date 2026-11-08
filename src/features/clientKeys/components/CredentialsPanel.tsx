@@ -130,6 +130,10 @@ export function CredentialsPanel({
 
   return (
     <div className={styles.panel}>
+      <header className={styles.viewHeader}>
+        <h2 className={styles.viewTitle}>{t('client_keys.credentials.heading')}</h2>
+        <p className={styles.viewDescription}>{t('client_keys.credentials.description')}</p>
+      </header>
       <div className={styles.toolbar}>
         <div className={`form-group ${styles.keySelect}`}>
           <label id={`${baseId}-key`}>{t('client_keys.credentials.key_select_label')}</label>

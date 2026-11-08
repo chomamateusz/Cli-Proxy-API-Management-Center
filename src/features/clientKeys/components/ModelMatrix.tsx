@@ -136,6 +136,10 @@ export function ModelMatrix({
 
   return (
     <div className={styles.matrix}>
+      <header className={styles.viewHeader}>
+        <h2 className={styles.viewTitle}>{t('client_keys.matrix.heading')}</h2>
+        <p className={styles.viewDescription}>{t('client_keys.matrix.description')}</p>
+      </header>
       {blockedAll.map((item) => (
         <div key={item.key} className={styles.warningBanner} role="note">
           {t('client_keys.matrix.all_blocked_banner', item)}
