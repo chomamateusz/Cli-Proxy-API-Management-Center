@@ -187,7 +187,11 @@ describe('deriveModelCell', () => {
     expect(rowReadonlyReason(all[1], all)).toBe('duplicate');
     expect(rowReadonlyReason(all[3], all)).toBe('dots');
     expect(rowReadonlyReason(entry('ok', 4), all)).toBeNull();
-    for (const why of ['unnamed', 'duplicate', 'dots'] as const) {
+    expect(rowReadonlyReason(entry('0', 5), all)).toBe('numeric');
+    expect(rowReadonlyReason(entry('-0', 5), all)).toBe('numeric');
+    expect(rowReadonlyReason(entry('-1', 5), all)).toBeNull();
+    expect(rowReadonlyReason(entry('team/ci', 5), all)).toBe('slash');
+    for (const why of ['unnamed', 'duplicate', 'dots', 'numeric', 'slash'] as const) {
       expect(deriveModelCell(lists(), column('gpt-5'), CREDENTIALS, why)).toEqual({
         state: 'locked',
         allowed: true,

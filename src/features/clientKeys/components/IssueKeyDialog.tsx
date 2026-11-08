@@ -28,8 +28,10 @@ interface IssueKeyDialogProps {
 
 const NAME_ERRORS = {
   required: 'client_keys.issue.name_required',
+  slash: 'client_keys.issue.name_slash',
   invalid: 'client_keys.issue.name_invalid',
   dots: 'client_keys.issue.name_dots',
+  numeric: 'client_keys.issue.name_numeric',
   taken: 'client_keys.issue.name_taken',
 } as const;
 

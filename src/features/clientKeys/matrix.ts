@@ -7,7 +7,7 @@ import type {
   PolicyLists,
   PolicyPatch,
 } from '@/types/clientKeys';
-import { isDotsOnlyName } from './issueValidation';
+import { hasPathSeparator, isDotsOnlyName, isIndexLikeName } from './issueValidation';
 import {
   allowsCredential,
   allowsModel,
@@ -16,7 +16,7 @@ import {
   policyMatches,
 } from './policyMatching';
 
-export type RowReadonlyReason = 'unnamed' | 'duplicate' | 'dots';
+export type RowReadonlyReason = 'unnamed' | 'duplicate' | 'dots' | 'numeric' | 'slash';
 
 export type CellLock =
   | { reason: 'pattern'; patterns: string[] }
@@ -98,6 +98,8 @@ export function rowReadonlyReason(
   if (policy.name === '') return 'unnamed';
   if (all.filter((entry) => entry.name === policy.name).length > 1) return 'duplicate';
   if (isDotsOnlyName(policy.name)) return 'dots';
+  if (hasPathSeparator(policy.name)) return 'slash';
+  if (isIndexLikeName(policy.name)) return 'numeric';
   return null;
 }
 
