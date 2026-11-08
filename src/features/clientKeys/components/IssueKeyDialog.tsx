@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -51,6 +51,7 @@ export function IssueKeyDialog({
   const nowMs = useNow();
   const formId = useId();
   const expiryLabelId = useId();
+  const nameId = useId();
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [expiry, setExpiry] = useState<string>(DEFAULT_TTL);
@@ -80,6 +81,13 @@ export function IssueKeyDialog({
     setNameError(error ? t(NAME_ERRORS[error]) : null);
     return error === null;
   };
+
+  useEffect(() => {
+    if (!open) return;
+    // The Modal focuses its close button on open; move focus to the name field after it.
+    const timer = window.setTimeout(() => document.getElementById(nameId)?.focus(), 30);
+    return () => window.clearTimeout(timer);
+  }, [nameId, open]);
 
   const close = () => {
     setSecret(null);
@@ -158,7 +166,7 @@ export function IssueKeyDialog({
           hint={t('client_keys.issue.name_hint')}
           value={name}
           error={nameError ?? undefined}
-          autoFocus
+          id={nameId}
           spellCheck={false}
           autoComplete="off"
           className={styles.mono}
@@ -166,7 +174,9 @@ export function IssueKeyDialog({
             setName(event.target.value);
             if (nameError) setNameError(null);
           }}
-          onBlur={() => checkName(name)}
+          onBlur={() => {
+            if (name !== '') checkName(name);
+          }}
         />
         <div className="form-group">
           <label id={expiryLabelId}>{t('client_keys.issue.expiry_label')}</label>

@@ -132,7 +132,7 @@
   display: inline-block;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  max-block-size: 180px;
+  max-inline-size: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -145,7 +145,6 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  display: table-cell;
   padding: 8px 12px;
   text-align: left;
   vertical-align: top;

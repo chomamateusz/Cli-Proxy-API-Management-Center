@@ -54,19 +54,27 @@ export function ClientKeysPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [sheetTarget, setSheetTarget] = useState<SheetTarget | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const view = parseClientKeysView(searchParams.get('view'));
   const ready = data.status === 'ready';
   const canIssue = ready && data.connected;
 
   useHeaderRefresh(data.reload);
 
-  const updateParams = useCallback(
-    (updates: Record<string, string>) => {
-      const next = new URLSearchParams(searchParams);
-      Object.entries(updates).forEach(([key, value]) => next.set(key, value));
-      setSearchParams(next, { replace: true });
+  // PageTransition keeps the location of a same-path navigation frozen, so the routed page never
+  // sees its own query changes; local state is the source of truth and the URL only mirrors it.
+  const [view, setView] = useState<ClientKeysView>(() =>
+    parseClientKeysView(searchParams.get('view'))
+  );
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => searchParams.get('key'));
+
+  const syncUrl = useCallback(
+    (nextView: ClientKeysView, nextKey: string | null) => {
+      setView(nextView);
+      setSelectedKey(nextKey);
+      setSearchParams(nextKey === null ? { view: nextView } : { view: nextView, key: nextKey }, {
+        replace: true,
+      });
     },
-    [searchParams, setSearchParams]
+    [setSearchParams]
   );
 
   const existingNames = useMemo(
@@ -162,10 +170,10 @@ export function ClientKeysPage() {
         policies={data.policies}
         credentials={data.credentials}
         credentialsError={data.credentialsError}
-        selectedKey={searchParams.get('key')}
+        selectedKey={selectedKey}
         pending={data.pending}
         cellErrors={data.cellErrors}
-        onSelectKey={(value) => updateParams({ view: 'credentials', key: value })}
+        onSelectKey={(value) => syncUrl('credentials', value)}
         onEditPatterns={(policy) => openSheet(policy, 'credentials')}
         onReload={() => void data.reload()}
         applyPolicyChange={data.applyPolicyChange}
@@ -217,7 +225,7 @@ export function ClientKeysPage() {
         <ClientKeysTabs
           active={view}
           keyCount={data.issuedKeys.length}
-          onChange={(next) => updateParams({ view: next })}
+          onChange={(next) => syncUrl(next, selectedKey)}
         />
         <div
           role="tabpanel"

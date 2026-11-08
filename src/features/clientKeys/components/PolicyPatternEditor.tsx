@@ -132,6 +132,43 @@ export function PolicyPatternEditor({
 
   return (
     <div className={styles.editor} role="group" aria-label={label}>
+      <form
+        className={styles.addRow}
+        onSubmit={submit}
+        onKeyDown={handleInputKeys}
+        onFocus={() => {
+          dropdownOpenRef.current = true;
+        }}
+      >
+        <AutocompleteInput
+          id={id}
+          label={label}
+          value={input}
+          onChange={(next) => {
+            setInput(next);
+            setInputError(null);
+          }}
+          options={[...candidates]}
+          placeholder={t('client_keys.sheet.add_placeholder')}
+          disabled={disabled}
+          hint={hint}
+          error={inputError ?? undefined}
+          wrapperClassName={styles.input}
+        />
+        <Button type="submit" variant="secondary" size="sm" disabled={disabled}>
+          <span className={styles.buttonContent}>
+            <IconPlus size={14} />
+            {t('client_keys.sheet.add')}
+          </span>
+        </Button>
+      </form>
+      {trimmed && !disabled ? (
+        <p className={styles.live} aria-live="polite">
+          {matchCount(trimmed) === 0
+            ? t('client_keys.sheet.matches_none')
+            : t('client_keys.sheet.matches', { count: matchCount(trimmed) })}
+        </p>
+      ) : null}
       <ExcludedModelChipRow>
         {values.map((value) => {
           const variant = value.includes('*')
@@ -182,43 +219,6 @@ export function PolicyPatternEditor({
             </Button>
           </div>
         </div>
-      ) : null}
-      <form
-        className={styles.addRow}
-        onSubmit={submit}
-        onKeyDown={handleInputKeys}
-        onFocus={() => {
-          dropdownOpenRef.current = true;
-        }}
-      >
-        <AutocompleteInput
-          id={id}
-          label={label}
-          value={input}
-          onChange={(next) => {
-            setInput(next);
-            setInputError(null);
-          }}
-          options={[...candidates]}
-          placeholder={t('client_keys.sheet.add_placeholder')}
-          disabled={disabled}
-          hint={hint}
-          error={inputError ?? undefined}
-          wrapperClassName={styles.input}
-        />
-        <Button type="submit" variant="secondary" size="sm" disabled={disabled}>
-          <span className={styles.buttonContent}>
-            <IconPlus size={14} />
-            {t('client_keys.sheet.add')}
-          </span>
-        </Button>
-      </form>
-      {trimmed && !disabled ? (
-        <p className={styles.live} aria-live="polite">
-          {matchCount(trimmed) === 0
-            ? t('client_keys.sheet.matches_none')
-            : t('client_keys.sheet.matches', { count: matchCount(trimmed) })}
-        </p>
       ) : null}
     </div>
   );

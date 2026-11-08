@@ -53,12 +53,14 @@ export function KeysTable({
   );
   const otherKeys = policies.filter((policy) => policy.issuedBy === '').length;
 
-  const instant = (raw: string, ms: number | null) => {
+  const instant = (raw: string, ms: number | null, past = false) => {
     if (ms === null) return <span title={raw}>{raw}</span>;
     return (
       <span title={raw} className={styles.instant}>
         <span>{formatKeyInstant(ms, locale)}</span>
-        <span className={styles.relative}>{formatRelativeInstant(ms, nowMs, locale)}</span>
+        <span className={styles.relative}>
+          {formatRelativeInstant(past ? Math.min(ms, nowMs) : ms, nowMs, locale)}
+        </span>
       </span>
     );
   };
@@ -122,7 +124,7 @@ export function KeysTable({
                   {key.name}
                 </th>
                 <TableCell>{key.issuedBy}</TableCell>
-                <TableCell>{instant(key.createdAt, key.createdAtMs)}</TableCell>
+                <TableCell>{instant(key.createdAt, key.createdAtMs, true)}</TableCell>
                 <TableCell>{expiry(key)}</TableCell>
                 <TableCell>
                   <PolicySummary lists={policyListsFor(key, policies)} />
