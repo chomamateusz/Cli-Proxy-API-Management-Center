@@ -20,6 +20,8 @@ interface AutocompleteInputProps {
   disabled?: boolean;
   hint?: string;
   error?: string;
+  invalid?: boolean;
+  describedBy?: string;
   className?: string;
   wrapperClassName?: string;
   wrapperStyle?: React.CSSProperties;
@@ -37,6 +39,8 @@ export function AutocompleteInput({
   disabled,
   hint,
   error,
+  invalid,
+  describedBy,
   className = '',
   wrapperClassName = '',
   wrapperStyle,
@@ -153,6 +157,8 @@ export function AutocompleteInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           autoComplete="off"
           style={{ paddingRight: 32 }}
         />

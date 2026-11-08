@@ -4,6 +4,7 @@ import {
   createClientKeysController,
   type ClientKeysDeps,
 } from '../src/features/clientKeys/clientKeysController';
+import { patternCellId, queuedPolicyGuardKey } from '../src/features/clientKeys/presentation';
 import type {
   ClientKeyPolicy,
   IssuedKey,
@@ -322,6 +323,98 @@ describe('client keys controller: policy changes', () => {
     const { controller } = setup({ listPolicies: () => new Promise(() => {}) });
     controller.start(true);
     expect(controller.applyPolicyChange(change('k', 'a'))).toBe(false);
+  });
+});
+
+describe('client keys controller: allowlist guard with queued changes', () => {
+  const patternChange = (op: 'add' | 'remove', value: string) => ({
+    keyName: 'k',
+    cellIds: [patternCellId('k', 'models', value)],
+    patch: { [op]: { models: [value] } },
+    announce: `${op}:${value}`,
+  });
+
+  test('a removal behind a held addition still warns, so a failed addition cannot open access silently', async () => {
+    const { controller, patches } = setup({
+      listPolicies: async () => [policy(0, 'k', ['a'])],
+    });
+    controller.start(true);
+    await flush();
+    const guard = (op: 'add' | 'remove', value: string) => {
+      const snapshot = controller.getSnapshot();
+      const current = snapshot.policies.find((entry) => entry.name === 'k');
+      if (!current) throw new Error('policy k missing');
+      return queuedPolicyGuardKey(current, 'models', snapshot.pending.keys(), op, value);
+    };
+
+    expect(controller.applyPolicyChange(patternChange('add', 'b'))).toBe(true);
+    await flush();
+    expect(patches).toHaveLength(1);
+
+    expect(guard('remove', 'a')).toBe('client_keys.sheet.last_allow_warning');
+    expect(controller.applyPolicyChange(patternChange('remove', 'a'))).toBe(true);
+
+    patches[0].reply.reject(Object.assign(new Error('boom'), { status: 500 }));
+    await flush();
+    await flush();
+    expect(patches).toHaveLength(2);
+    expect(patches[1].patch).toEqual({ remove: { models: ['a'] } });
+    patches[1].reply.resolve(policy(0, 'k', []));
+    await flush();
+
+    expect(controller.getSnapshot().policies[0].models).toEqual([]);
+    expect(guard('add', 'c')).toBe('client_keys.sheet.first_allow_warning');
+  });
+});
+
+describe('client keys controller: pattern save errors', () => {
+  const failedPatternChange = async () => {
+    const listIssued = manual<IssuedKey[]>();
+    const listPolicies = manual<ClientKeyPolicy[]>();
+    const env = setup({ listIssued: listIssued.call, listPolicies: listPolicies.call });
+    env.controller.start(true);
+    listIssued.waiting[0].resolve([]);
+    listPolicies.waiting[0].resolve([policy(0, 'k', ['a'])]);
+    await flush();
+    const cell = patternCellId('k', 'models', 'b');
+    env.controller.applyPolicyChange({
+      keyName: 'k',
+      cellIds: [cell],
+      patch: { add: { models: ['b'] } },
+      announce: '',
+    });
+    await flush();
+    env.patches[0].reply.reject(
+      Object.assign(new Error('bad'), { status: 400, apiCode: 'invalid_config' })
+    );
+    await flush();
+    expect(env.controller.getSnapshot().cellErrors.has(cell)).toBe(true);
+    return { ...env, cell, listIssued, listPolicies };
+  };
+
+  test('a reload clears a stale pattern error', async () => {
+    const { controller, cell, listIssued, listPolicies } = await failedPatternChange();
+    const reloaded = controller.load();
+    listIssued.waiting[1].resolve([]);
+    listPolicies.waiting[1].resolve([policy(0, 'k', ['a'])]);
+    await reloaded;
+    expect(controller.getSnapshot().cellErrors.has(cell)).toBe(false);
+  });
+
+  test('a key refresh clears a stale pattern error', async () => {
+    const { controller, cell, listIssued, listPolicies } = await failedPatternChange();
+    const issued = controller.issueKey({ name: 'n', ttl: null, models: ['*'] });
+    await issued;
+    listIssued.waiting[1].resolve([]);
+    listPolicies.waiting[1].resolve([policy(0, 'k', ['a'])]);
+    await flush();
+    expect(controller.getSnapshot().cellErrors.has(cell)).toBe(false);
+  });
+
+  test('dismissing a pattern error removes it', async () => {
+    const { controller, cell } = await failedPatternChange();
+    controller.dismissCellErrors([cell]);
+    expect(controller.getSnapshot().cellErrors.has(cell)).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { createElement, Fragment, type ReactElement } from 'react';
+import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '../src/i18n/index';
@@ -16,11 +16,16 @@ import { nextGridPosition } from '../src/features/clientKeys/hooks/useGridRoving
 import { buildModelCatalog } from '../src/features/clientKeys/matrix';
 import { KeyPolicySheet } from '../src/features/clientKeys/components/KeyPolicySheet';
 import {
+  PolicyPatternEditor,
+  type PolicyPatternEditorProps,
+} from '../src/features/clientKeys/components/PolicyPatternEditor';
+import {
   blockAllBanners,
+  focusAfterPatternChange,
+  guardPatternList,
   patternCellId,
   pendingPatternValues,
   policyGuardKey,
-  projectPatternList,
 } from '../src/features/clientKeys/presentation';
 import type { ClientKeyPolicy, IssuedKey, PolicyLists } from '../src/types/clientKeys';
 
@@ -131,6 +136,30 @@ describe('KeysTable', () => {
   test('points to keys managed in the configuration', () => {
     expect(html).toContain('Client keys managed in the configuration: 1.');
     expect(html).toContain('href="/config"');
+  });
+
+  test('a key created after the last clock tick reads as created now', () => {
+    const fresh = render(
+      createElement(KeysTable, {
+        issuedKeys: [
+          issued('fresh', {
+            createdAt: new Date(NOW + 20_000).toISOString(),
+            createdAtMs: NOW + 20_000,
+          }),
+          issued('earlier', {
+            createdAt: new Date(NOW - 30_000).toISOString(),
+            createdAtMs: NOW - 30_000,
+          }),
+        ],
+        policies: [],
+        revoking: new Set<string>(),
+        nowMs: NOW,
+        onRevoke: noop,
+      })
+    );
+    expect(fresh).not.toContain('in 1 minute');
+    expect(fresh).not.toContain('1 minute ago');
+    expect(fresh.match(/>now</g)).toHaveLength(2);
   });
 });
 
@@ -340,6 +369,7 @@ describe('KeyPolicySheet', () => {
       ]),
       expiresLabel: 'Never',
       applyPolicyChange: () => true,
+      dismissCellErrors: noop,
       onClose: noop,
     })
   );
@@ -369,33 +399,156 @@ describe('KeyPolicySheet', () => {
   });
 
   test('shows a failed pattern change next to its editor', () => {
-    expect(html).toContain('<div class="error-box">Could not save claude-*</div>');
+    expect(html).toMatch(/<div id="[^"]+" class="error-box">Could not save claude-\*<\/div>/);
+  });
+
+  test('a removal error of a saved entry does not mark the input invalid', () => {
+    expect(html).not.toContain('aria-invalid');
+  });
+});
+
+type SheetProps = Parameters<typeof KeyPolicySheet>[0];
+
+function sheetEditors(props: SheetProps): PolicyPatternEditorProps[] {
+  const found: PolicyPatternEditorProps[] = [];
+  const collect = (node: ReactNode) => {
+    if (Array.isArray(node)) {
+      node.forEach(collect);
+      return;
+    }
+    if (!isValidElement<{ children?: ReactNode }>(node)) return;
+    if (node.type === PolicyPatternEditor) {
+      found.push(node.props as unknown as PolicyPatternEditorProps);
+      return;
+    }
+    collect(node.props.children);
+  };
+  const Probe = () => {
+    collect(KeyPolicySheet(props));
+    return null;
+  };
+  renderToStaticMarkup(createElement(Probe));
+  return found;
+}
+
+describe('KeyPolicySheet guard with queued changes', () => {
+  const sheetProps = (models: string[], pendingIds: string[]): SheetProps => ({
+    open: true,
+    policy: policy(1, 'ci-runner', { models }),
+    policies: [policy(1, 'ci-runner', { models })],
+    credentials: [WORK],
+    catalog: CATALOG,
+    focusSection: 'models',
+    pending: new Map(pendingIds.map((id) => [id, { keyName: 'ci-runner' }])),
+    cellErrors: new Map(),
+    expiresLabel: 'Never',
+    applyPolicyChange: () => true,
+    dismissCellErrors: noop,
+    onClose: noop,
+  });
+  const modelsGuard = (props: SheetProps) => {
+    const label = i18n.t('client_keys.sheet.allow_models_label');
+    const editor = sheetEditors(props).find((entry) => entry.label === label);
+    if (!editor?.guard) throw new Error('models editor not found');
+    return editor.guard;
+  };
+  const LAST = i18n.t('client_keys.sheet.last_allow_warning');
+
+  test('a queued removal leaves the last remaining entry guarded', () => {
+    const guard = modelsGuard(
+      sheetProps(['model-a', 'model-b'], [patternCellId('ci-runner', 'models', 'model-b')])
+    );
+    expect(guard('remove', 'model-a')).toBe(LAST);
+  });
+
+  test('a queued addition does not count as protection', () => {
+    const guard = modelsGuard(
+      sheetProps(['model-a'], [patternCellId('ci-runner', 'models', 'model-b')])
+    );
+    expect(guard('remove', 'model-a')).toBe(LAST);
+  });
+
+  test('queued changes of other keys and fields are ignored', () => {
+    const guard = modelsGuard(
+      sheetProps(
+        ['model-a', 'model-b'],
+        [
+          patternCellId('other', 'models', 'model-b'),
+          patternCellId('ci-runner', 'excludedModels', 'model-b'),
+        ]
+      )
+    );
+    expect(guard('remove', 'model-a')).toBeNull();
   });
 });
 
 describe('queued pattern changes', () => {
-  const removalOf = (value: string) => patternCellId('k', 'models', value);
-
-  test('the open-access guard sees removals that are still pending', () => {
-    const values = ['model-a', 'model-b'];
-    expect(policyGuardKey('models', values, 'remove', 'model-b')).toBeNull();
-    const projected = projectPatternList(
-      values,
-      pendingPatternValues([removalOf('model-a')], 'k', 'models')
-    );
-    expect(projected).toEqual(['model-b']);
-    expect(policyGuardKey('models', projected, 'remove', 'model-b')).toBe(
-      'client_keys.sheet.last_allow_warning'
-    );
+  test('only saved entries that are not queued for removal protect the list', () => {
+    expect(guardPatternList(['model-a', 'model-b'], ['model-a', 'model-c'])).toEqual(['model-b']);
   });
 
-  test('pending additions count towards the projected list', () => {
-    const projected = projectPatternList(
-      ['model-a'],
-      pendingPatternValues([removalOf('model-b'), 'p\u0001other\u0001models\u0001x'], 'k', 'models')
+  test('pending cell ids are scoped to their key and field', () => {
+    expect(
+      pendingPatternValues(
+        [patternCellId('k', 'models', 'a'), 'p\u0001other\u0001models\u0001x'],
+        'k',
+        'models'
+      )
+    ).toEqual(['a']);
+  });
+});
+
+describe('pattern editor focus after a change', () => {
+  test('a refused confirmed removal returns focus to its chip', () => {
+    expect(focusAfterPatternChange('remove', 'a', 2, false, true)).toEqual({
+      kind: 'chip',
+      index: 2,
+    });
+  });
+
+  test('a confirmed addition returns focus to the input whether or not it was accepted', () => {
+    expect(focusAfterPatternChange('add', 'a', -1, true, true)).toEqual({ kind: 'input' });
+    expect(focusAfterPatternChange('add', 'a', -1, false, true)).toEqual({ kind: 'input' });
+  });
+
+  test('an accepted removal moves focus to the next chip', () => {
+    expect(focusAfterPatternChange('remove', 'a', 1, true, false)).toEqual({
+      kind: 'after-removal',
+      value: 'a',
+      index: 1,
+    });
+  });
+
+  test('an unconfirmed refusal keeps focus on its trigger', () => {
+    expect(focusAfterPatternChange('remove', 'a', 1, false, false)).toBeNull();
+    expect(focusAfterPatternChange('add', 'a', -1, false, false)).toBeNull();
+  });
+});
+
+describe('PolicyPatternEditor save errors', () => {
+  const editorHtml = (errors: Map<string, string>, values: string[] = []) =>
+    renderToStaticMarkup(
+      createElement(PolicyPatternEditor, {
+        id: 'ed',
+        label: 'Allowed models',
+        hint: '',
+        values,
+        candidates: [],
+        matchCount: () => 0,
+        errors,
+        onAdd: () => true,
+        onRemove: () => true,
+      })
     );
-    expect(projected).toEqual(['model-a', 'model-b']);
-    expect(policyGuardKey('models', projected, 'remove', 'model-a')).toBeNull();
+
+  test('a failed removal of a saved entry stays visible with an id', () => {
+    const html = editorHtml(new Map([['model-a', 'Could not save']]), ['model-a']);
+    expect(html).toContain('<div id="ed-error-0" class="error-box">Could not save</div>');
+    expect(html).not.toContain('aria-describedby');
+  });
+
+  test('an error for a value that is no longer typed is hidden', () => {
+    expect(editorHtml(new Map([['model-x', 'Could not save']]))).not.toContain('Could not save');
   });
 });
 

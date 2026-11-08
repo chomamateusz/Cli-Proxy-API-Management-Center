@@ -7,7 +7,11 @@ import {
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput';
 import { Button } from '@/components/ui/Button';
 import { IconAlertTriangle, IconPlus } from '@/components/ui/icons';
-import type { PatternOp } from '../presentation';
+import {
+  focusAfterPatternChange,
+  type PatternFocusRequest,
+  type PatternOp,
+} from '../presentation';
 import styles from './PolicyPatternEditor.module.scss';
 
 export interface PatternCandidate {
@@ -29,6 +33,7 @@ export interface PolicyPatternEditorProps {
   disabled?: boolean;
   onAdd: (value: string) => PatternChangeResult;
   onRemove: (value: string) => PatternChangeResult;
+  onDismissError?: (value: string) => void;
   guard?: (op: PatternOp, value: string) => string | null;
 }
 
@@ -37,11 +42,6 @@ interface PendingConfirm {
   value: string;
   message: string;
 }
-
-type FocusRequest =
-  | { kind: 'input' }
-  | { kind: 'chip'; index: number }
-  | { kind: 'after-removal'; value: string; index: number };
 
 export function PolicyPatternEditor({
   id,
@@ -55,18 +55,20 @@ export function PolicyPatternEditor({
   disabled = false,
   onAdd,
   onRemove,
+  onDismissError,
   guard,
 }: PolicyPatternEditorProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
-  const [rejected, setRejected] = useState(false);
+  const [rejection, setRejection] = useState(0);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
   const [focusTick, setFocusTick] = useState(0);
   const dropdownOpenRef = useRef(false);
+  const rejectionCountRef = useRef(0);
   const confirmRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
-  const focusRequestRef = useRef<FocusRequest | null>(null);
+  const focusRequestRef = useRef<PatternFocusRequest | null>(null);
   const known = new Set(candidates.map((candidate) => candidate.value.toLowerCase()));
   const trimmed = input.trim();
 
@@ -96,30 +98,28 @@ export function PolicyPatternEditor({
     (target ?? document.getElementById(id))?.focus();
   }, [focusTick, id, values]);
 
-  const requestFocus = (request: FocusRequest) => {
+  const requestFocus = (request: PatternFocusRequest) => {
     focusRequestRef.current = request;
     setFocusTick((tick) => tick + 1);
   };
 
-  const run = (op: PatternOp, value: string) => {
-    setRejected(false);
-    if (op === 'add') {
-      const result = onAdd(value);
-      if (result === false) {
-        setRejected(true);
-        return;
-      }
-      void Promise.resolve(result).then((saved) => {
-        if (saved) setInput((current) => (current.trim() === value ? '' : current));
-      });
-      return;
-    }
+  const run = (op: PatternOp, value: string, confirmed: boolean) => {
     const index = values.indexOf(value);
-    if (onRemove(value) === false) {
-      setRejected(true);
-      return;
+    const result = op === 'add' ? onAdd(value) : onRemove(value);
+    const accepted = result !== false;
+    if (accepted) {
+      setRejection(0);
+      if (op === 'add') {
+        void Promise.resolve(result).then((saved) => {
+          if (saved) setInput((current) => (current.trim() === value ? '' : current));
+        });
+      }
+    } else {
+      rejectionCountRef.current += 1;
+      setRejection(rejectionCountRef.current);
     }
-    requestFocus({ kind: 'after-removal', value, index });
+    const focus = focusAfterPatternChange(op, value, index, accepted, confirmed);
+    if (focus) requestFocus(focus);
   };
 
   const request = (op: PatternOp, value: string) => {
@@ -128,7 +128,7 @@ export function PolicyPatternEditor({
       setConfirm({ op, value, message: warning });
       return;
     }
-    run(op, value);
+    run(op, value, false);
   };
 
   const cancelConfirm = (pendingConfirm: PendingConfirm) => {
@@ -142,8 +142,16 @@ export function PolicyPatternEditor({
 
   const applyConfirm = (pendingConfirm: PendingConfirm) => {
     setConfirm(null);
-    if (pendingConfirm.op === 'add') requestFocus({ kind: 'input' });
-    run(pendingConfirm.op, pendingConfirm.value);
+    run(pendingConfirm.op, pendingConfirm.value, true);
+  };
+
+  const changeInput = (next: string) => {
+    if (next.trim() !== trimmed && errors?.has(trimmed) && !values.includes(trimmed)) {
+      onDismissError?.(trimmed);
+    }
+    setInput(next);
+    setInputError(null);
+    setRejection(0);
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -178,8 +186,7 @@ export function PolicyPatternEditor({
         event.stopPropagation();
       } else if (input !== '') {
         event.stopPropagation();
-        setInput('');
-        setInputError(null);
+        changeInput('');
       }
       dropdownOpenRef.current = false;
       return;
@@ -204,6 +211,13 @@ export function PolicyPatternEditor({
         .map(([, message]) => message)
     ),
   ];
+  const rejectedId = `${id}-rejected`;
+  const saveErrorId = (index: number) => `${id}-error-${index}`;
+  const inputSaveError = values.includes(trimmed) ? undefined : errors?.get(trimmed);
+  const describedBy = [
+    rejection > 0 ? rejectedId : null,
+    inputSaveError === undefined ? null : saveErrorId(saveErrors.indexOf(inputSaveError)),
+  ].filter((entry): entry is string => entry !== null);
 
   return (
     <div className={styles.editor} role="group" aria-label={label}>
@@ -219,16 +233,14 @@ export function PolicyPatternEditor({
           id={id}
           label={label}
           value={input}
-          onChange={(next) => {
-            setInput(next);
-            setInputError(null);
-            setRejected(false);
-          }}
+          onChange={changeInput}
           options={[...candidates]}
           placeholder={t('client_keys.sheet.add_placeholder')}
           disabled={disabled}
           hint={hint}
           error={inputError ?? undefined}
+          invalid={describedBy.length > 0}
+          describedBy={describedBy.length > 0 ? describedBy.join(' ') : undefined}
           wrapperClassName={styles.input}
           submitOnEnter
         />
@@ -246,9 +258,13 @@ export function PolicyPatternEditor({
             : t('client_keys.sheet.matches', { count: matchCount(trimmed) })}
         </p>
       ) : null}
-      {rejected ? <div className="error-box">{t('client_keys.sheet.change_rejected')}</div> : null}
-      {saveErrors.map((message) => (
-        <div key={message} className="error-box">
+      {rejection > 0 ? (
+        <div key={rejection} id={rejectedId} className="error-box" role="alert">
+          {t('client_keys.sheet.change_rejected')}
+        </div>
+      ) : null}
+      {saveErrors.map((message, index) => (
+        <div key={message} id={saveErrorId(index)} className="error-box">
           {message}
         </div>
       ))}

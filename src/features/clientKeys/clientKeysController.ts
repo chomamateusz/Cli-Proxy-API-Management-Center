@@ -15,6 +15,7 @@ import {
 } from './errors';
 import { createKeyedSerialQueue } from './keyedQueue';
 import { mergePolicies, rowReadonlyReason } from './matrix';
+import { isPatternCellId } from './presentation';
 
 export type ClientKeysStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'forbidden' | 'error';
 
@@ -112,9 +113,8 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
   let queue = createKeyedSerialQueue();
   let stampCounter = 0;
   let stamps = new Map<string, number>();
-  // Lists (issued keys + policies) are written by load and refreshKeys; the model catalog by
-  // load and retryCatalog. Separate sequences keep an issue-triggered refresh from stranding a
-  // catalog load that is still in progress.
+  // Separate sequences keep an issue-triggered refresh from stranding a catalog load that is
+  // still in progress.
   const nextLoad = createRequestSequence();
   const nextLists = createRequestSequence();
   const nextCatalog = createRequestSequence();
@@ -159,10 +159,26 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
     return { catalogProgress: null, catalogModels: {} };
   };
 
-  const applyLists = (issued: IssuedKey[], fetched: ClientKeyPolicy[], since: number) =>
+  const withoutSettledPatternErrors = (
+    current: ReadonlyMap<string, string>,
+    before: ReadonlyMap<string, string>
+  ) => {
+    const settled = [...before]
+      .filter(([id, message]) => isPatternCellId(id) && current.get(id) === message)
+      .map(([id]) => id);
+    return settled.length === 0 ? current : withEntries(current, settled, null);
+  };
+
+  const applyLists = (
+    issued: IssuedKey[],
+    fetched: ClientKeyPolicy[],
+    since: number,
+    errorsBefore: ReadonlyMap<string, string>
+  ) =>
     update((current) => ({
       issuedKeys: issued,
       policies: mergePolicies(fetched, current.policies, stamps, since),
+      cellErrors: withoutSettledPatternErrors(current.cellErrors, errorsBefore),
     }));
 
   const load = async (): Promise<void> => {
@@ -175,6 +191,7 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
     }
     if (state.status !== 'ready') update({ status: 'loading' });
     const since = stampCounter;
+    const errorsBefore = state.cellErrors;
     const [issued, fetched, files] = await Promise.allSettled([
       deps.listIssued(),
       deps.listPolicies(),
@@ -196,7 +213,7 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
         update({ ...clearCatalog(), error: keyFailures[0]?.message ?? '', status: 'error' });
         return;
       }
-      applyLists(issued.value, fetched.value, since);
+      applyLists(issued.value, fetched.value, since, errorsBefore);
       update({ error: null });
     }
     if (files.status === 'rejected') {
@@ -231,9 +248,10 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
     const listsCurrent = nextLists();
     const sessionCurrent = sessionGuard();
     const since = stampCounter;
+    const errorsBefore = state.cellErrors;
     try {
       const [issued, fetched] = await Promise.all([deps.listIssued(), deps.listPolicies()]);
-      if (sessionCurrent() && listsCurrent()) applyLists(issued, fetched, since);
+      if (sessionCurrent() && listsCurrent()) applyLists(issued, fetched, since, errorsBefore);
     } catch (err) {
       if (!sessionCurrent() || !listsCurrent()) return;
       const classified = classifyClientKeyError(err);
@@ -353,6 +371,11 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
     return true;
   };
 
+  const dismissCellErrors = (cellIds: string[]) => {
+    if (!cellIds.some((id) => state.cellErrors.has(id))) return;
+    update((current) => ({ cellErrors: withEntries(current.cellErrors, cellIds, null) }));
+  };
+
   const invalidateRequests = () => {
     nextLoad();
     nextLists();
@@ -392,6 +415,7 @@ export function createClientKeysController(initialDeps: ClientKeysDeps) {
     issueKey,
     revokeKey,
     applyPolicyChange,
+    dismissCellErrors,
   };
 }
 

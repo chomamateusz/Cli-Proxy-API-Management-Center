@@ -95,6 +95,7 @@ export function useClientKeysData() {
     issueKey: controller.issueKey,
     revokeKey: controller.revokeKey,
     applyPolicyChange: controller.applyPolicyChange,
+    dismissCellErrors: controller.dismissCellErrors,
   };
 }
 

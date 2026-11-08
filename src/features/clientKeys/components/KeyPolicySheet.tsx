@@ -16,8 +16,7 @@ import {
   patternCellId,
   patternErrors,
   pendingPatternValues,
-  policyGuardKey,
-  projectPatternList,
+  queuedPolicyGuardKey,
   type PatternOp,
   type PolicySheetSection,
 } from '../presentation';
@@ -35,6 +34,7 @@ interface KeyPolicySheetProps {
   cellErrors: ReadonlyMap<string, string>;
   expiresLabel: string;
   applyPolicyChange: (change: PolicyChange) => boolean;
+  dismissCellErrors: (cellIds: string[]) => void;
   onClose: () => void;
 }
 
@@ -49,6 +49,7 @@ export function KeyPolicySheet({
   cellErrors,
   expiresLabel,
   applyPolicyChange,
+  dismissCellErrors,
   onClose,
 }: KeyPolicySheetProps) {
   const { t } = useTranslation();
@@ -91,7 +92,6 @@ export function KeyPolicySheet({
   const editor = (field: PolicyListField, labelKey: string, hintKey: string) => {
     const values = policy[field];
     const queued = pendingPatternValues(pending.keys(), policy.name, field);
-    const projected = projectPatternList(values, queued);
     const change = (op: PatternOp, value: string): false | Promise<boolean> => {
       let settle: (saved: boolean) => void = () => {};
       const saved = new Promise<boolean>((resolve) => {
@@ -125,8 +125,9 @@ export function KeyPolicySheet({
         disabled={readonly !== null}
         onAdd={(value) => change('add', value)}
         onRemove={(value) => change('remove', value)}
+        onDismissError={(value) => dismissCellErrors([patternCellId(policy.name, field, value)])}
         guard={(op, value) => {
-          const key = policyGuardKey(field, projected, op, value);
+          const key = queuedPolicyGuardKey(policy, field, pending.keys(), op, value);
           return key ? t(key) : null;
         }}
       />

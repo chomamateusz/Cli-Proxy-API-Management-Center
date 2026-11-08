@@ -25,6 +25,8 @@ export const patternCellId = (keyName: string, field: PolicyListField, value: st
 const patternCellPrefix = (keyName: string, field: PolicyListField) =>
   patternCellId(keyName, field, '');
 
+export const isPatternCellId = (cellId: string) => cellId.startsWith('p\u0001');
+
 export function pendingPatternValues(
   cellIds: Iterable<string>,
   keyName: string,
@@ -47,13 +49,14 @@ export function patternErrors(
   );
 }
 
-export function projectPatternList(
+// A queued addition can still fail after a later removal has been accepted, so only entries that
+// are saved and not queued for removal count as protection against an empty (open) list.
+export function guardPatternList(
   values: readonly string[],
   pendingValues: readonly string[]
 ): string[] {
-  const removing = new Set(pendingValues.filter((value) => values.includes(value)));
-  const adding = pendingValues.filter((value) => !values.includes(value));
-  return [...values.filter((value) => !removing.has(value)), ...adding];
+  const pending = new Set(pendingValues);
+  return values.filter((value) => !pending.has(value));
 }
 
 export const keyLabelFor = (t: TFunction, policy: ClientKeyPolicy) =>
@@ -134,4 +137,33 @@ export function policyGuardKey(
   const remaining = current.filter((entry) => entry !== value);
   if (remaining.length === 0) return keys.last;
   return current.includes('*') && !remaining.includes('*') ? keys.star : null;
+}
+
+export function queuedPolicyGuardKey(
+  policy: ClientKeyPolicy,
+  field: PolicyListField,
+  pendingCellIds: Iterable<string>,
+  op: PatternOp,
+  value: string
+): string | null {
+  const queued = pendingPatternValues(pendingCellIds, policy.name, field);
+  return policyGuardKey(field, guardPatternList(policy[field], queued), op, value);
+}
+
+export type PatternFocusRequest =
+  | { kind: 'input' }
+  | { kind: 'chip'; index: number }
+  | { kind: 'after-removal'; value: string; index: number };
+
+export function focusAfterPatternChange(
+  op: PatternOp,
+  value: string,
+  index: number,
+  accepted: boolean,
+  confirmed: boolean
+): PatternFocusRequest | null {
+  if (op === 'remove' && accepted) return { kind: 'after-removal', value, index };
+  // A confirmed change unmounts the confirm row that holds focus; otherwise the trigger stays.
+  if (!confirmed) return null;
+  return op === 'add' ? { kind: 'input' } : { kind: 'chip', index };
 }

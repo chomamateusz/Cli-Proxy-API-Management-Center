@@ -287,6 +287,7 @@ export function ClientKeysPage() {
           cellErrors={data.cellErrors}
           expiresLabel={expiresLabel(sheetPolicy)}
           applyPolicyChange={data.applyPolicyChange}
+          dismissCellErrors={data.dismissCellErrors}
           onClose={() => setSheetOpen(false)}
         />
       ) : null}
