@@ -65,6 +65,22 @@ describe('formatRelativeInstant', () => {
     expect(past).toContain('ago');
   });
 
+  test('an instant equal to now reads as now rather than in 1 minute', () => {
+    expect(formatRelativeInstant(NOW, NOW, 'en')).toBe('now');
+    expect(formatRelativeInstant(NOW, NOW, 'zh-CN')).toBe('现在');
+  });
+
+  test('a gap inside the clock granularity reads as now when asked', () => {
+    const options = { nowWithinMs: MINUTE_MS };
+    expect(formatRelativeInstant(NOW + 30_000, NOW, 'en', options)).toBe('now');
+    expect(formatRelativeInstant(NOW - 30_000, NOW, 'en', options)).toBe('now');
+    expect(formatRelativeInstant(NOW - MINUTE_MS, NOW, 'en', options)).toBe('1 minute ago');
+  });
+
+  test('countdowns keep their sub-minute floor by default', () => {
+    expect(formatRelativeInstant(NOW + 30_000, NOW, 'en')).toBe('in 1 minute');
+  });
+
   test('falls back instead of throwing on an unusable locale tag', () => {
     expect(() => formatRelativeInstant(NOW + DAY_MS, NOW, 'not-a-locale!!')).not.toThrow();
     expect(formatRelativeInstant(NOW + DAY_MS, NOW, 'not-a-locale!!')).toBeTruthy();

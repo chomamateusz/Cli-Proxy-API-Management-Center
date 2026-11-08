@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/Table';
 import type { ClientKeyPolicy, IssuedKey, PolicyLists } from '@/types/clientKeys';
 import { formatRelativeInstant } from '@/utils/quota/relativeTime';
+import { MINUTE_MS } from '@/utils/time/durations';
 import { formatKeyInstant } from '../formatInstant';
 import { PolicySummary } from './PolicySummary';
 import styles from './KeysTable.module.scss';
@@ -59,7 +60,9 @@ export function KeysTable({
       <span title={raw} className={styles.instant}>
         <span>{formatKeyInstant(ms, locale)}</span>
         <span className={styles.relative}>
-          {formatRelativeInstant(past ? Math.min(ms, nowMs) : ms, nowMs, locale)}
+          {past
+            ? formatRelativeInstant(Math.min(ms, nowMs), nowMs, locale, { nowWithinMs: MINUTE_MS })
+            : formatRelativeInstant(ms, nowMs, locale)}
         </span>
       </span>
     );

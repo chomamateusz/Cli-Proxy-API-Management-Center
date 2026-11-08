@@ -113,6 +113,19 @@ describe('createSharedClock', () => {
     expect(timers.created()).toBe(1);
   });
 
+  test('refresh advances the snapshot and notifies without waiting for a tick', () => {
+    const { clock, timers, advance } = makeClock();
+    let notified = 0;
+    clock.subscribe(() => (notified += 1));
+
+    advance(20_000);
+    clock.refresh();
+
+    expect(clock.getSnapshot()).toBe(1_000_000 + 20_000);
+    expect(notified).toBe(1);
+    expect(timers.created()).toBe(1);
+  });
+
   test('unsubscribing twice does not clear a fresh timer', () => {
     const { clock, timers } = makeClock();
     const off = clock.subscribe(() => {});

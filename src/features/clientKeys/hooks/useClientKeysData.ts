@@ -7,6 +7,7 @@ import { clientKeysApi } from '@/services/api/clientKeys';
 import { routingApi } from '@/services/api/routing';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import type { ModelCatalog } from '@/types/clientKeys';
+import { MINUTE_CLOCK } from '@/utils/time/sharedClock';
 import { createClientKeysController } from '../clientKeysController';
 import { toPolicyCredential } from '../credentials';
 import { buildModelCatalog } from '../matrix';
@@ -30,7 +31,11 @@ export function useClientKeysData() {
       listPolicies: () => clientKeysApi.listPolicies(),
       listCredentials: async () => (await authFilesApi.list()).files.map(toPolicyCredential),
       loadCredentialModels: (names, onResult) => routingApi.loadCredentialModels(names, onResult),
-      issue: (input) => clientKeysApi.issue(input),
+      issue: async (input) => {
+        const result = await clientKeysApi.issue(input);
+        MINUTE_CLOCK.refresh();
+        return result;
+      },
       revoke: (name) => clientKeysApi.revoke(name),
       patchPolicy: (name, patch) => clientKeysApi.patchPolicy(name, patch),
       connectionRevision: () => apiClient.getConnectionRevision(),

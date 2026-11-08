@@ -28,6 +28,7 @@ export interface SharedClock {
    * timer callback.
    */
   getSnapshot(): number;
+  refresh(): void;
 }
 
 export interface SharedClockOptions {
@@ -79,6 +80,7 @@ export function createSharedClock(options: SharedClockOptions = {}): TestableSha
     getSnapshot() {
       return current;
     },
+    refresh: tick,
     subscriberCount() {
       return listeners.size;
     },
