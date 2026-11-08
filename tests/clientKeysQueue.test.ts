@@ -66,6 +66,30 @@ describe('createKeyedSerialQueue', () => {
     expect(await next).toBe('ok');
   });
 
+  test('cancel drops tasks that have not started and keeps later ones', async () => {
+    const queue = createKeyedSerialQueue();
+    const log: string[] = [];
+    const first = deferred();
+    const running = queue.run('k', async () => {
+      log.push('running');
+      await first.promise;
+    });
+    const waiting = queue.run('k', async () => {
+      log.push('waiting');
+    });
+    await flush();
+    queue.cancel();
+    const later = queue.run('k', async () => {
+      log.push('later');
+      return 'later';
+    });
+    first.resolve();
+    await running;
+    await expect(waiting).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await later).toBe('later');
+    expect(log).toEqual(['running', 'later']);
+  });
+
   test('cleans up settled keys', async () => {
     const queue = createKeyedSerialQueue();
     await queue.run('a', async () => 1);

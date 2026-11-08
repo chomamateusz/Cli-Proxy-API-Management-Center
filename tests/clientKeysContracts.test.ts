@@ -59,16 +59,18 @@ describe('client keys source contracts', () => {
   });
 
   test('the issued secret never reaches toasts, announcements or translations', () => {
-    const sinks = /(?:showNotification|setAnnouncement|\bt)\(/g;
+    const sinks = /(?:showNotification|notifyError|setAnnouncement|\bt)\(/g;
     const offenders = codeFiles.filter((file) =>
       callArguments(withoutStrings(read(file)), sinks).some((args) => /\bsecret\b/.test(args))
     );
     expect(offenders).toEqual([]);
-    const hook = withoutStrings(read(join(FEATURE_DIR, 'hooks/useClientKeysData.ts')));
-    const setters = callArguments(hook, /\bset\w+\(/g);
-    expect(setters.length).toBeGreaterThan(0);
-    expect(setters.filter((args) => /\bsecret\b/.test(args))).toEqual([]);
+    const controller = withoutStrings(read(join(FEATURE_DIR, 'clientKeysController.ts')));
+    const writes = callArguments(controller, /\bupdate\(/g);
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes.filter((args) => /\bsecret\b/.test(args))).toEqual([]);
+    const hook = read(join(FEATURE_DIR, 'hooks/useClientKeysData.ts'));
     expect(hook).not.toMatch(/useState<[^>]*Secret/);
+    expect(hook).not.toMatch(/\bsecret\b/);
   });
 
   test('the route and navigation entry are registered', () => {
