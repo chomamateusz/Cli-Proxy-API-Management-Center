@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { syncRevealState, type RevealState } from './revealState';
 import styles from './PrivateText.module.scss';
 
 export function PrivateText({
@@ -12,7 +13,10 @@ export function PrivateText({
   showEmails: boolean;
 }) {
   const { t } = useTranslation();
-  const [revealed, setRevealed] = useState(false);
+  const [revealState, setRevealState] = useState<RevealState>({ revealed: false, showEmails });
+  const synced = syncRevealState(revealState, showEmails);
+  if (synced !== revealState) setRevealState(synced);
+  const { revealed } = synced;
   if (showEmails || !text.includes('@')) {
     return (
       <span className={className} title={text}>
@@ -29,7 +33,7 @@ export function PrivateText({
       title={hint}
       // While blurred, announce the action instead of reading the hidden email aloud.
       aria-label={revealed ? undefined : hint}
-      onClick={() => setRevealed((value) => !value)}
+      onClick={() => setRevealState({ revealed: !revealed, showEmails })}
     >
       <span className={styles.privateText}>{text}</span>
     </button>

@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import '../src/i18n/index';
 import { PrivateText } from '../src/features/quota/components/PrivateText';
+import { syncRevealState } from '../src/features/quota/components/revealState';
 
 const EMAIL = 'tiago@example.com';
 
@@ -23,6 +24,13 @@ describe('quota account email privacy', () => {
 
   test('shows plain text when "Show emails" is on', () => {
     expect(render(EMAIL, true)).toBe(`<span class="name" title="${EMAIL}">${EMAIL}</span>`);
+  });
+
+  test('"Hide emails" hides again an address revealed by clicking it', () => {
+    const revealed = { revealed: true, showEmails: false };
+    expect(syncRevealState(revealed, false)).toBe(revealed);
+    const shown = syncRevealState(revealed, true);
+    expect(syncRevealState(shown, false).revealed).toBe(false);
   });
 
   test('never blurs nicknames', () => {
