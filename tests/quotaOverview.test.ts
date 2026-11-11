@@ -31,7 +31,7 @@ const claudeWindow = (
   resetAtMs: number | null
 ) => ({ id, label: id, labelKey, usedPercent, resetLabel: '', resetAtMs });
 
-const claudeQuota = (fableUsed: number | null, sevenDayUsed: number, resetInHours: number) =>
+const claudeQuota = (fableUsed: number | null, sevenDayUsed: number | null, resetInHours: number) =>
   ({
     status: 'success',
     planType: 'plan_max',
@@ -198,6 +198,18 @@ describe('provider summary', () => {
     expect(summary.nextResetAtMs).toBeNull();
     expect(summary.nextResetGain).toBeNull();
     expect(buildProviderSummary(t, 'codex', [undefined], now).pool).toBeNull();
+  });
+
+  test('an account whose primary limit is unknown adds no capacity to the pool', () => {
+    const pool = (sevenDayUsed: (number | null)[]) =>
+      buildProviderSummary(
+        t,
+        'claude',
+        sevenDayUsed.map((used) => claudeQuota(null, used, 120)),
+        now
+      ).pool;
+    expect(pool([0, null])).toMatchObject({ remaining: 100, capacity: 100 });
+    expect(pool([null, null])).toMatchObject({ remaining: null, capacity: 0 });
   });
 });
 

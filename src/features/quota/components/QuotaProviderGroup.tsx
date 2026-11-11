@@ -56,11 +56,22 @@ const quotaGridTemplate = (metricCount: number, hasExtras: boolean) =>
 
 function PoolValue({ pool }: { pool: PoolTotal }) {
   const { t } = useTranslation();
-  const average = pool.remaining === null ? null : (pool.remaining / pool.capacity) * 100;
+  if (pool.remaining === null || pool.capacity === 0) {
+    return (
+      <span className={styles.pool}>
+        <span className={styles.poolValue} data-tone="unknown">
+          --
+        </span>
+      </span>
+    );
+  }
   return (
     <span className={styles.pool}>
-      <span className={styles.poolValue} data-tone={toneForRemaining(average)}>
-        {pool.remaining === null ? '--' : formatPercent(pool.remaining)}
+      <span
+        className={styles.poolValue}
+        data-tone={toneForRemaining((pool.remaining / pool.capacity) * 100)}
+      >
+        {formatPercent(pool.remaining)}
       </span>{' '}
       {t('quota_overview.of_pool', { capacity: formatPercent(pool.capacity) })}
     </span>

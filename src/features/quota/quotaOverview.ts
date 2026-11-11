@@ -171,7 +171,7 @@ const poolOf = (metrics: readonly QuotaMetric[]): PoolTotal | null => {
       known.length === 0
         ? null
         : known.reduce((sum, metric) => sum + (metric.remainingPercent ?? 0), 0),
-    capacity: metrics.length * 100,
+    capacity: known.length * 100,
   };
 };
 
