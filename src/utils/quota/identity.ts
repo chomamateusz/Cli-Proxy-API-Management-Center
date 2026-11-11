@@ -27,7 +27,6 @@ export interface QuotaAccountLabel {
   detail: string | null;
 }
 
-/** Nickname (the auth file note), then email, then file name; never `account`. */
 export function getQuotaAccountLabel(file: AuthFileItem): QuotaAccountLabel {
   const fallback = file.email?.trim() || getQuotaDisplayName(file);
   const note = typeof file.note === 'string' ? file.note.trim() : '';

@@ -126,6 +126,6 @@ export const writePersistedQuotaView = (view: QuotaView) => {
   try {
     window.localStorage.setItem(QUOTA_VIEW_KEY, view);
   } catch {
-    // ignore
+    // Storage blocked or full: the view still switches, it just is not remembered.
   }
 };

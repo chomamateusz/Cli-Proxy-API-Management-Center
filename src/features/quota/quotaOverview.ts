@@ -239,18 +239,13 @@ export const maskEmail = (text: string): string =>
 const CREDENTIAL_PREFIX =
   /^(?:codex-[0-9a-f]{8}-|(?:claude|codex|gemini|antigravity|kimi|xai|grok|devin|meta|qwen|iflow|kiro|vertex)-)/;
 
-/**
- * Masks the email inside a credential file name while keeping the provider prefix
- * readable: `codex-ae5d455f-john-doe@lumen.dev-pro.json` becomes
- * `codex-ae5d455f-j•••@l•••.dev-pro.json`.
- */
 export const maskCredentialName = (name: string): string => {
   if (!name.includes('@')) return name;
   const prefix = name.match(CREDENTIAL_PREFIX)?.[0] ?? '';
   return `${prefix}${maskEmail(name.slice(prefix.length))}`;
 };
 
-/** `118d`, `2d 4h`, `19h 12m`, `7m`; units stay unlocalized like the timeline's day labels. */
+// Units stay unlocalized, matching the timeline's day labels.
 export const formatCountdown = (targetMs: number, nowMs: number): string => {
   const totalMinutes = Math.max(0, Math.ceil((targetMs - nowMs) / MINUTE_MS));
   const days = Math.floor(totalMinutes / (24 * 60));
