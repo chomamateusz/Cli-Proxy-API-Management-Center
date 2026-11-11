@@ -1,11 +1,13 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconRefreshCw, IconTimer, IconZap } from '@/components/ui/icons';
+import { IconRefreshCw, IconTimer } from '@/components/ui/icons';
 import type { ClaudeQuotaState, CodexQuotaState, XaiQuotaState } from '@/types';
 import { formatInstantShort, parseIsoToMs, resolveQuotaErrorMessage } from '@/utils/quota';
 import type { QuotaAccountLabel } from '@/utils/quota/identity';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import { ClaudeResetGrantAction } from '../providers/claude/ClaudeResetGrantAction';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { getCodexPlanLabel } from '../providers/codex/planLabel';
 import { formatXaiRemainingAmount } from '../providers/xai/amounts';
@@ -84,22 +86,27 @@ function ResetLine({
   label,
   endsAtMs,
   nowMs,
+  action,
 }: {
-  count: number;
+  count: number | null;
   label: string;
   endsAtMs: number | null;
   nowMs: number;
+  action: ReactNode;
 }) {
   return (
     <div className={styles.resetLine}>
-      <span className={styles.resetCount}>{count}</span>
-      <span className={styles.resetLabel}>{label}</span>
+      {count !== null && <span className={styles.resetCount}>{count}</span>}
+      <span className={styles.resetLabel} title={label}>
+        {label}
+      </span>
       {endsAtMs !== null && endsAtMs > nowMs && (
         <span className={styles.resetExpiry} title={formatInstantShort(endsAtMs)}>
           <IconTimer size={12} aria-hidden="true" />
           {formatCountdown(endsAtMs, nowMs)}
         </span>
       )}
+      {action}
     </div>
   );
 }
@@ -140,7 +147,6 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     Boolean(adapter.resetQuota) &&
     quota !== undefined &&
     Boolean(adapter.canResetQuota?.(quota));
-  const showClaudeReset = entry.type === 'claude' && (claudeReset.count ?? 0) > 0;
 
   const plan =
     status !== 'success'
@@ -218,27 +224,35 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
   };
 
   const renderExtras = () => {
-    if (status !== 'success' || !quota) return null;
     if (extrasColumn === 'claude-resets') {
-      if (claudeReset.message) {
-        return (
-          <span className={styles.extrasNote} role="status">
-            {t(`claude_reset.${claudeReset.message}`)}
-          </span>
-        );
-      }
-      return claudeReset.grants
-        .filter((grant) => grant.resetsLeft > 0)
-        .map((grant, index) => (
-          <ResetLine
-            key={grant.id}
-            count={grant.resetsLeft}
-            label={grant.label || t('claude_reset.grant_number', { index: index + 1 })}
-            endsAtMs={parseIsoToMs(grant.endsAt)}
-            nowMs={nowMs}
-          />
-        ));
+      if (status !== 'success' && status !== 'error') return null;
+      return (
+        <>
+          {claudeReset.lines.map((line) => (
+            <ResetLine
+              key={line.id}
+              count={line.resetsLeft}
+              label={line.label}
+              endsAtMs={parseIsoToMs(line.endsAt)}
+              nowMs={nowMs}
+              action={
+                <ClaudeResetGrantAction
+                  line={line}
+                  className={styles.resetAction}
+                  onUse={claudeReset.use}
+                />
+              }
+            />
+          ))}
+          {claudeReset.message && (
+            <span className={styles.extrasNote} role="status">
+              {t(`claude_reset.${claudeReset.message}`)}
+            </span>
+          )}
+        </>
+      );
     }
+    if (status !== 'success' || !quota) return null;
     if (extrasColumn === 'codex-resets') {
       const codex = quota as CodexQuotaState;
       const available = codex.rateLimitResetCreditsAvailableCount;
@@ -253,6 +267,18 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
           label={t('quota_overview.resets_available')}
           endsAtMs={nextExpiry ?? null}
           nowMs={nowMs}
+          action={
+            canResetCodex && (
+              <button
+                type="button"
+                className={styles.resetAction}
+                onClick={onReset}
+                disabled={!canRefresh || loading || resetting}
+              >
+                {t('codex_quota.reset_button')}
+              </button>
+            )
+          }
         />
       );
     }
@@ -279,30 +305,6 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
       {extrasColumn && <div className={styles.extras}>{renderExtras()}</div>}
 
       <div className={styles.actions}>
-        {showClaudeReset && (
-          <button
-            type="button"
-            className={styles.iconAction}
-            disabled={claudeReset.blocked}
-            onClick={claudeReset.confirm}
-            title={t(`claude_reset.${claudeReset.buttonLabel}`)}
-            aria-label={t(`claude_reset.${claudeReset.buttonLabel}`)}
-          >
-            <IconZap size={15} className={claudeReset.busy ? styles.busy : undefined} />
-          </button>
-        )}
-        {canResetCodex && (
-          <button
-            type="button"
-            className={styles.iconAction}
-            onClick={onReset}
-            disabled={!canRefresh || loading || resetting}
-            title={t('codex_quota.reset_button')}
-            aria-label={t('codex_quota.reset_button')}
-          >
-            <IconZap size={15} className={resetting ? styles.busy : undefined} />
-          </button>
-        )}
         {status !== 'idle' && (
           <button
             type="button"

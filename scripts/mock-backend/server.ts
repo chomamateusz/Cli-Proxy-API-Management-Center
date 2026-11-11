@@ -146,7 +146,7 @@ const answerClaude = (claude: (typeof claudeFixtures)[number], url: string) => {
           clears: ['five_hour', 'seven_day'],
           paused: false,
           usable_now: true,
-          use_requires_limit: false,
+          use_requires_limit: grant.requiresLimit ?? false,
         })),
         weekly_resets_at:
           claude.sevenDay.resetInMs === null ? null : iso(claude.sevenDay.resetInMs),

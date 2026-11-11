@@ -16,7 +16,7 @@ import {
   ResetGrantPreflightError,
   resetGrantFailureMessageKey,
 } from './resetGrantOperations';
-import { selectResetGrant } from './selectResetGrant';
+import { planResetGrantLines } from './resetGrantAvailability';
 import { readResetGrantsForCard, scheduleResetGrantRead } from './resetGrantReads';
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
@@ -80,19 +80,26 @@ export function useClaudeResetGrants(
   const operation = resetGrantOperations.inspect(key);
   const pending = operation && !operation.code ? operation : undefined;
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
-  const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
-  const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
-  const confirm = () => {
-    if (blocked || lock.current || !selected || !authIndex) return;
+  const lines = planResetGrantLines(
+    status,
+    pending && { grantId: pending.grantId, label: pending.label, expired },
+    now,
+    busy ? 'busy' : disabled || !sessionActive || !authIndex ? 'unavailable' : null,
+    (index) => t('claude_reset.grant_number', { index })
+  );
+  const use = (grantId: string) => {
+    const line = lines.find((item) => item.id === grantId);
+    if (!line || line.block || lock.current || !authIndex) return;
     const version = generation.current;
     const current = () =>
       session === apiClient.getConnectionRevision() && version === generation.current;
     showConfirmation({
-      title: t('claude_reset.title'),
-      message: t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
+      title: t(line.retry ? 'claude_reset.retry_title' : 'claude_reset.title'),
+      message: t(line.retry ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
         name: displayName,
+        label: line.label,
       }),
-      confirmText: t(pending ? 'claude_reset.retry' : 'claude_reset.confirm'),
+      confirmText: t(line.retry ? 'claude_reset.retry' : 'claude_reset.confirm'),
       variant: 'primary',
       onConfirm: async () => {
         if (!current() || lock.current || useAuthStore.getState().connectionStatus !== 'connected')
@@ -100,7 +107,7 @@ export function useClaudeResetGrants(
         lock.current = true;
         setBusy(true);
         try {
-          const answer = await resetGrantOperations.run(key, authIndex, selected);
+          const answer = await resetGrantOperations.run(key, authIndex, grantId, line.label);
           if (!current()) return;
           showNotification(
             answer.code === 'cooldown_clear_failed'
@@ -140,11 +147,9 @@ export function useClaudeResetGrants(
   };
   return {
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
-    grants: status?.grants ?? [],
+    lines,
     busy,
-    blocked,
-    confirm,
+    use,
     message: pending ? (expired ? 'expired' : 'unknown') : message,
-    buttonLabel: pending ? 'retry' : 'use',
   };
 }
