@@ -2670,6 +2670,7 @@
     "why_not_usable": "Bu Sıfırlama Şu Anda Kullanılamaz.",
     "why_exhausted": "Bu Hakta Sıfırlama Kalmadı.",
     "why_not_limited": "Yalnızca Hesap Sınırına Ulaştığında Kullanılabilir.",
+    "why_no_usage": "Sıfırlanacak Fable Kullanımı Yok.",
     "why_not_started": "Bu Sıfırlama Henüz Kullanılamaz.",
     "why_grant_expired": "Bu Sıfırlamanın Süresi Doldu.",
     "why_cooldown": "Yakın Zamanda Bir Sıfırlama Kullanıldı. Soğumanın Bitmesini Bekle.",

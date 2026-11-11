@@ -2670,6 +2670,7 @@
     "why_not_usable": "This reset cannot be used right now.",
     "why_exhausted": "No resets left in this grant.",
     "why_not_limited": "Usable only once the account has hit its limit.",
+    "why_no_usage": "No Fable usage to reset.",
     "why_not_started": "This reset is not available yet.",
     "why_grant_expired": "This reset has expired.",
     "why_cooldown": "A reset was used recently; wait for the cooldown to end.",

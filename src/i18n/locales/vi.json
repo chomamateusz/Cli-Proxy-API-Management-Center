@@ -2676,6 +2676,7 @@
     "why_not_usable": "Hiện không thể dùng lượt đặt lại này.",
     "why_exhausted": "Quyền này không còn lượt đặt lại nào.",
     "why_not_limited": "Chỉ dùng được khi tài khoản đã chạm giới hạn.",
+    "why_no_usage": "Chưa có mức sử dụng Fable để đặt lại.",
     "why_not_started": "Lượt đặt lại này chưa khả dụng.",
     "why_grant_expired": "Lượt đặt lại này đã hết hạn.",
     "why_cooldown": "Vừa dùng một lượt đặt lại; hãy chờ hết thời gian cooldown.",

@@ -86,11 +86,34 @@ describe('Claude reset grant fail-closed parsing', () => {
       { paused: 'false' },
       { starts_at: 'bad' },
       { clears: {} },
+      { gives_back_weekly: 'true' },
     ]) {
       expect(
         parseAnthropicResetGrantStatus({ ...block, grants: [{ ...grant, ...fields }] })
       ).toBeNull();
     }
+  });
+  test('a model refill with known zero usage is blocked, unknown usage is not', () => {
+    for (const [percent_used, blocked] of [
+      [{ seven_day_fable: 0 }, true],
+      [{ seven_day_fable: 0, seven_day_overage_included: 0 }, true],
+      [{ seven_day_fable: 35 }, false],
+      [{ seven_day_fable: 0, seven_day: 12 }, false],
+      [{ seven_day_fable: 'x' }, false],
+      [undefined, false],
+    ] as const) {
+      const parsed = parseAnthropicResetGrantStatus({
+        ...block,
+        grants: [{ ...grant, gives_back_weekly: true, percent_used }],
+      })!;
+      expect(anthropicResetGrantBlocker(parsed, grant.id)).toBe(blocked ? 'no_usage' : null);
+    }
+    const weekly = parseAnthropicResetGrantStatus({
+      ...block,
+      grants: [{ ...grant, type: 'weekly', percent_used: { seven_day: 0 } }],
+    })!;
+    expect(weekly.grants[0].resetType).toBe('weekly');
+    expect(anthropicResetGrantBlocker(weekly, grant.id)).toBeNull();
   });
 });
 
@@ -533,6 +556,7 @@ test('date, pause, limit, balance, usability and cooldown gates refuse new spend
     { usableNow: false },
     { startsAt: '2099-01-01T00:00:00Z' },
     { endsAt: '1970-01-01T00:00:00Z' },
+    { givesBackWeekly: true, percentUsed: { seven_day_fable: 0 } },
   ]) {
     const h = setup();
     h.deps.readStatus = async () => ({
@@ -677,6 +701,7 @@ test('all grant messages and confirmation are translated in seven locales', asyn
       'not_usable',
       'exhausted',
       'not_limited',
+      'no_usage',
       'not_started',
       'grant_expired',
       'cooldown',

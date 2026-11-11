@@ -2669,6 +2669,7 @@
     "why_not_usable": "此重置当前无法使用。",
     "why_exhausted": "该权益已没有剩余重置次数。",
     "why_not_limited": "仅在账户达到限制后可用。",
+    "why_no_usage": "没有可重置的 Fable 用量。",
     "why_not_started": "此重置尚未生效。",
     "why_grant_expired": "此重置已过期。",
     "why_cooldown": "最近已使用过重置，请等待冷却结束。",
