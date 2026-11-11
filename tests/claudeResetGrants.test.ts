@@ -1,5 +1,3 @@
-import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
-
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { apiClient } from '../src/services/api/client';
 import {
@@ -22,6 +20,10 @@ import {
   resetGrantFailureMessageKey,
   RETRY_WINDOW_MS,
 } from '../src/features/quota/providers/claude/resetGrantOperations';
+import {
+  planResetGrantLines,
+  resetGrantBlock,
+} from '../src/features/quota/providers/claude/resetGrantAvailability';
 
 const organization = '11111111-2222-3333-4444-555555555555';
 const grant = { id: 'test-grant', resets_total: 2, resets_left: 2, usable_now: true };
@@ -300,6 +302,7 @@ function setup() {
   let now = 100;
   let count = 0;
   const ids: string[] = [];
+  const claimed: string[] = [];
   const cleared: string[] = [];
   const deps = {
     revision: () => revision,
@@ -314,16 +317,18 @@ function setup() {
     claim: async (
       _auth: string,
       _org: string,
-      _grant: string,
+      grantId: string,
       id: string
     ): Promise<AnthropicResetSettledCode> => {
       ids.push(id);
+      claimed.push(grantId);
       throw new AnthropicResetGrantUnknownOutcome();
     },
   };
   return {
     deps,
     ids,
+    claimed,
     cleared,
     nextSession: () => {
       revision++;
@@ -419,15 +424,18 @@ test('a connection change during cooldown clearing cannot report success for the
   expect(operations.inspect('account')).toBeUndefined();
 });
 
-test('unknown outcome retains request ID across retries; expiry blocks', async () => {
+test('unknown outcome retains request ID and grant across retries; expiry blocks', async () => {
   const h = setup();
+  const second = { ...status().grants[0], id: 'second-grant' };
+  h.deps.readStatus = async () => ({ ...status(), grants: [...status().grants, second] });
   const operations = createResetGrantOperations(h.deps);
-  await expect(operations.run('account', 'a', grant.id)).rejects.toThrow();
-  await expect(operations.run('account', 'a', grant.id)).rejects.toThrow();
+  await expect(operations.run('account', 'a', second.id)).rejects.toThrow();
+  await expect(operations.run('account', 'a', second.id)).rejects.toThrow();
   expect(h.ids).toEqual(['request-1', 'request-1']);
-  await expect(operations.run('account', 'a', 'other-grant')).rejects.toThrow('expired');
+  expect(h.claimed).toEqual([second.id, second.id]);
+  await expect(operations.run('account', 'a', grant.id)).rejects.toThrow('other_grant');
   h.advance();
-  await expect(operations.run('account', 'a', grant.id)).rejects.toThrow('expired');
+  await expect(operations.run('account', 'a', second.id)).rejects.toThrow('expired');
   expect(h.ids).toHaveLength(2);
 });
 
@@ -630,8 +638,10 @@ test('all grant messages and confirmation are translated in six locales', async 
     for (const stage of ['organization', 'status', 'eligibility', 'request_id', 'operation']) {
       expect(locale[`failure_${stage}`]).toContain('{{code}}');
     }
-    expect(locale.confirm_text).toContain('{{name}}');
-    expect(locale.retry_confirm).toContain('{{name}}');
+    for (const key of ['confirm_text', 'retry_confirm']) {
+      expect(locale[key]).toContain('{{name}}');
+      expect(locale[key]).toContain('{{label}}');
+    }
     expect(typeof locale.remaining).toBe('string');
     expect(locale.count).toContain('{{left}}');
     for (const key of [
@@ -646,40 +656,117 @@ test('all grant messages and confirmation are translated in six locales', async 
   }
 });
 
-test('card selection prefers usable recommendation and has deterministic fallback', () => {
+test('each grant has its own availability with the reason it cannot be spent', () => {
   const base = status();
-  const a = { ...base.grants[0], id: 'a' };
-  const b = { ...a, id: 'b' };
-  const multiple = { ...base, grants: [b, a], nextGrantId: 'b' };
-  expect(selectResetGrant(multiple, 0)?.id).toBe('b');
-  expect(selectResetGrant({ ...multiple, nextGrantId: null }, 0)?.id).toBe('a');
-  expect(selectResetGrant({ ...multiple, grants: [a, { ...b, paused: true }] }, 0)?.id).toBe('a');
-  expect(selectResetGrant({ ...multiple, eligible: false }, 0)).toBeUndefined();
-  expect(selectResetGrant({ ...multiple, atLimit: false }, 0)).toBeUndefined();
+  const a = { ...base.grants[0], id: 'a', endsAt: new Date(10_000).toISOString() };
+  const b = { ...a, id: 'b', endsAt: new Date(20_000).toISOString() };
+  const label = (index: number) => `Grant ${index}`;
+  const blocks = (value: typeof base, lock: 'busy' | 'unavailable' | null = null) =>
+    planResetGrantLines(value, undefined, 0, lock, label).map((line) => [line.id, line.block]);
+  expect(blocks({ ...base, grants: [b, a] })).toEqual([
+    ['a', null],
+    ['b', null],
+  ]);
   expect(
-    selectResetGrant({ ...multiple, cooldownUntil: new Date(1000).toISOString() }, 0)
-  ).toBeUndefined();
-  for (const changed of [
-    { resetsLeft: 0 },
-    { usableNow: false },
-    { paused: true },
-    { startsAt: new Date(1000).toISOString() },
-    { endsAt: new Date(0).toISOString() },
-  ]) {
-    expect(selectResetGrant({ ...base, grants: [{ ...a, ...changed }] }, 0)).toBeUndefined();
+    blocks({ ...base, grants: [a, { ...b, useRequiresLimit: true }], atLimit: false })
+  ).toEqual([
+    ['a', 'not_limited'],
+    ['b', 'not_limited'],
+  ]);
+  expect(
+    blocks({ ...base, grants: [a, { ...b, useRequiresLimit: false }], atLimit: false })
+  ).toEqual([
+    ['a', 'not_limited'],
+    ['b', null],
+  ]);
+  expect(blocks({ ...base, grants: [a, { ...b, paused: true }] })).toEqual([
+    ['a', null],
+    ['b', 'paused'],
+  ]);
+  expect(blocks({ ...base, grants: [a, b] }, 'busy')).toEqual([
+    ['a', 'busy'],
+    ['b', 'busy'],
+  ]);
+  expect(blocks({ ...base, grants: [a, b], cooldownUntil: new Date(1000).toISOString() })).toEqual([
+    ['a', 'cooldown'],
+    ['b', 'cooldown'],
+  ]);
+  for (const [changed, reason] of [
+    [{ usableNow: false }, 'not_usable'],
+    [{ startsAt: new Date(1000).toISOString() }, 'not_started'],
+    [{ endsAt: new Date(0).toISOString() }, 'grant_expired'],
+  ] as const) {
+    expect(resetGrantBlock({ ...base, grants: [a, { ...b, ...changed }] }, 'b', 0)).toBe(reason);
+    expect(resetGrantBlock({ ...base, grants: [a, { ...b, ...changed }] }, 'a', 0)).toBeNull();
   }
+  expect(resetGrantBlock({ ...base, eligible: false }, base.grants[0].id, 0)).toBe('ineligible');
+  expect(
+    planResetGrantLines(
+      { ...base, grants: [a, { ...b, resetsLeft: 0 }] },
+      undefined,
+      0,
+      null,
+      label
+    )
+  ).toHaveLength(1);
+  expect(
+    planResetGrantLines({ ...base, grants: [{ ...a, label: '' }] }, undefined, 0, null, label)[0]
+      .label
+  ).toBe('Grant 1');
 });
 
-test('Claude card uses Codex count and action styles and shared confirmation, not a grant dialog', async () => {
+test('an unresolved claim offers retry only on its grant and locks the others', () => {
+  const base = status();
+  const a = { ...base.grants[0], id: 'a', label: 'Full' };
+  const b = { ...a, id: 'b', label: 'Fable' };
+  const label = (index: number) => `Grant ${index}`;
+  const plan = (
+    value: typeof base | null,
+    expired = false,
+    lock: 'busy' | 'unavailable' | null = null
+  ) =>
+    planResetGrantLines(value, { grantId: 'b', label: 'Fable', expired }, 0, lock, label).map(
+      (line) => [line.id, line.retry, line.block]
+    );
+  const notLimited = { ...base, atLimit: false, grants: [a, { ...b, resetsLeft: 0 }] };
+  expect(plan(notLimited)).toEqual([
+    ['a', false, 'other_pending'],
+    ['b', true, null],
+  ]);
+  expect(plan(notLimited, true)).toEqual([
+    ['a', false, 'other_pending'],
+    ['b', true, 'retry_expired'],
+  ]);
+  expect(plan(notLimited, false, 'busy')).toEqual([
+    ['a', false, 'other_pending'],
+    ['b', true, 'busy'],
+  ]);
+  expect(plan({ ...base, grants: [a] })).toEqual([
+    ['a', false, 'other_pending'],
+    ['b', true, null],
+  ]);
+  expect(plan(null)).toEqual([['b', true, null]]);
+  expect(
+    planResetGrantLines(null, { grantId: 'b', label: 'Fable', expired: false }, 0, null, label)[0]
+  ).toMatchObject({
+    label: 'Fable',
+    resetsLeft: null,
+  });
+});
+
+test('grant actions spend the clicked grant through the shared confirmation', async () => {
   const card = await Bun.file('src/features/quota/components/QuotaCard.tsx').text();
+  const row = await Bun.file('src/features/quota/components/QuotaAccountRow.tsx').text();
+  const action = await Bun.file(
+    'src/features/quota/providers/claude/ClaudeResetGrantAction.tsx'
+  ).text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
-  expect(card).toContain('quotaClasses.codexPlanValue}>{claudeReset.count');
-  expect(card).toContain('disabled={claudeReset.blocked}');
-  expect(card).toContain('onClick={claudeReset.confirm}');
+  for (const source of [card, row]) expect(source).toContain('onUse={claudeReset.use}');
+  expect(action).toContain('disabled={line.block !== null}');
+  expect(action).toContain('onClick={() => onUse(line.id)}');
   expect(hook).toContain('showConfirmation({');
-  expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
+  expect(hook).toContain('resetGrantOperations.run(key, authIndex, grantId, line.label)');
   expect(hook).not.toContain('<Modal');
-  expect(hook).not.toContain('status.grants.map');
 });
 
 test('cooldown clear failures reuse existing messages without new locale keys', async () => {

@@ -271,6 +271,10 @@
   }
 }
 
+.actionPillCompact {
+  padding: 1px 9px;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .actionPill:hover:not(:disabled) {
     border-color: var(--border-hover);

@@ -96,7 +96,12 @@ export function QuotaCard(props: QuotaCardProps) {
   ) : undefined;
   const claudeAfterPlan = showClaudeReset ? (
     <>
-      <ClaudeResetGrantDetails grants={claudeReset.grants} classes={quotaClasses} />
+      <ClaudeResetGrantDetails
+        lines={claudeReset.lines}
+        classes={quotaClasses}
+        actionClassName={`${styles.actionPill} ${styles.actionPillCompact}`}
+        onUse={claudeReset.use}
+      />
       {claudeReset.message && (
         <div role="status" className={quotaClasses.codexResetCreditsError}>
           {t(`claude_reset.${claudeReset.message}`)}
@@ -188,18 +193,6 @@ export function QuotaCard(props: QuotaCardProps) {
 
       {status !== 'idle' && (
         <footer className={styles.actionRow}>
-          {entry.type === 'claude' && (
-            <button
-              type="button"
-              className={styles.actionPill}
-              disabled={claudeReset.blocked}
-              onClick={claudeReset.confirm}
-              title={t(`claude_reset.${claudeReset.buttonLabel}`)}
-            >
-              <IconRefreshCw size={13} className={claudeReset.busy ? styles.spinning : undefined} />
-              {t(`claude_reset.${claudeReset.buttonLabel}`)}
-            </button>
-          )}
           {showReset && (
             <button
               type="button"

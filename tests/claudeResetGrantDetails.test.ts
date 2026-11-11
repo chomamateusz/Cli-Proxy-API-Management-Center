@@ -4,7 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import { ClaudeResetGrantDetails } from '@/features/quota/providers/claude/ClaudeResetGrantDetails';
 import { bindQuotaClasses, QUOTA_CLASS_KEYS } from '@/features/quota/types';
-import type { AnthropicResetGrant } from '@/services/api/claudeResetGrants';
+import { planResetGrantLines } from '@/features/quota/providers/claude/resetGrantAvailability';
+import {
+  parseAnthropicResetGrantStatus,
+  type AnthropicResetGrant,
+} from '@/services/api/claudeResetGrants';
 import { formatInstantShort } from '@/utils/quota';
 import { resolveTimeZoneLabel } from '@/utils/time/timezone';
 
@@ -28,7 +32,20 @@ const grant = (overrides: Partial<AnthropicResetGrant> = {}): AnthropicResetGran
   ...overrides,
 });
 const render = (grants: AnthropicResetGrant[]) =>
-  renderToStaticMarkup(createElement(ClaudeResetGrantDetails, { grants, classes }));
+  renderToStaticMarkup(
+    createElement(ClaudeResetGrantDetails, {
+      lines: planResetGrantLines(
+        { ...parseAnthropicResetGrantStatus({ eligible: true, at_limit: true })!, grants },
+        undefined,
+        Date.now(),
+        null,
+        (index) => i18n.t('claude_reset.grant_number', { index })
+      ),
+      classes,
+      actionClassName: 'use',
+      onUse: () => {},
+    })
+  );
 
 beforeAll(async () => {
   await i18n.changeLanguage('en');
@@ -72,7 +89,7 @@ describe('Claude reset grant details', () => {
       grant({ paused: true, usableNow: false, endsAt: '2020-01-01T00:00:00Z' }),
     ]);
     expect(markup).toContain(formatInstantShort(Date.parse('2020-01-01T00:00:00Z')));
-    expect(markup).not.toContain('<button');
+    expect(markup).toMatch(/<button[^>]*disabled=""/);
   });
 
   test.each(['en', 'zh-CN', 'zh-TW', 'ru', 'vi'])(

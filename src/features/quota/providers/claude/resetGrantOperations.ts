@@ -2,12 +2,12 @@ import { apiClient } from '@/services/api/client';
 import { authFilesApi } from '@/services/api/authFiles';
 import {
   AnthropicResetGrantError,
-  anthropicResetGrantBlocker,
   claimClaudeResetGrant,
   readClaudeOrganization,
   readClaudeResetGrants,
   type AnthropicResetSettledCode,
 } from '@/services/api/claudeResetGrants';
+import { resetGrantBlock } from './resetGrantAvailability';
 import { generateResetGrantRequestId } from './resetGrantRequestId';
 
 export type ResetGrantFailureStage =
@@ -43,6 +43,7 @@ async function readPreflight<T>(stage: 'organization' | 'status', read: () => Pr
 export const RETRY_WINDOW_MS = 10 * 60 * 1000;
 type Operation = {
   grantId: string;
+  label: string;
   organization: string;
   requestId: string;
   createdAt: number;
@@ -82,7 +83,12 @@ export function createResetGrantOperations(deps = defaultDependencies) {
       syncSession();
       return operations.get(key);
     },
-    async run(key: string, authIndex: string, grantId: string): Promise<ResetGrantResult> {
+    async run(
+      key: string,
+      authIndex: string,
+      grantId: string,
+      label = ''
+    ): Promise<ResetGrantResult> {
       const session = syncSession();
       const assertSession = () => {
         if (deps.revision() !== session) throw new ResetGrantPreflightError('operation', 'session');
@@ -92,10 +98,9 @@ export function createResetGrantOperations(deps = defaultDependencies) {
       try {
         let operation = operations.get(key);
         if (operation?.code) operation = undefined;
-        if (
-          operation &&
-          (operation.grantId !== grantId || deps.now() - operation.createdAt >= RETRY_WINDOW_MS)
-        )
+        if (operation && operation.grantId !== grantId)
+          throw new ResetGrantPreflightError('operation', 'other_grant');
+        if (operation && deps.now() - operation.createdAt >= RETRY_WINDOW_MS)
           throw new ResetGrantPreflightError('operation', 'expired');
         const wasRetry = Boolean(operation);
         const organization = await readPreflight('organization', () =>
@@ -107,20 +112,8 @@ export function createResetGrantOperations(deps = defaultDependencies) {
         if (!operation) {
           const status = await readPreflight('status', () => deps.readStatus(authIndex));
           assertSession();
-          const grant = status.grants.find((item) => item.id === grantId);
           const now = deps.now();
-          const blocker = anthropicResetGrantBlocker(status, grantId);
-          const reason =
-            blocker ??
-            (!grant
-              ? 'unknown_grant'
-              : grant.startsAt && Date.parse(grant.startsAt) > now
-                ? 'not_started'
-                : grant.endsAt && Date.parse(grant.endsAt) <= now
-                  ? 'grant_expired'
-                  : status.cooldownUntil && Date.parse(status.cooldownUntil) > now
-                    ? 'cooldown'
-                    : null);
+          const reason = resetGrantBlock(status, grantId, now);
           if (reason) throw new ResetGrantPreflightError('eligibility', `blocked_${reason}`);
           let requestId: string;
           try {
@@ -128,7 +121,7 @@ export function createResetGrantOperations(deps = defaultDependencies) {
           } catch {
             throw new ResetGrantPreflightError('request_id', 'generation_failed');
           }
-          operation = { grantId, organization, requestId, createdAt: now };
+          operation = { grantId, label, organization, requestId, createdAt: now };
           operations.set(key, operation);
         }
         // Re-check immediately before dispatch; never send against a replacement connection.
