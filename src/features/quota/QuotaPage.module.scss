@@ -119,6 +119,14 @@
   }
 }
 
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .sort {
   flex: 0 0 auto;
   min-width: 148px;
@@ -192,6 +200,19 @@
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   align-items: stretch;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.rowsSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ---------- 分页 ---------- */

@@ -7,7 +7,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
-import { readQuotaUiState, writeQuotaUiState } from '@/features/quota/uiState';
+import {
+  readPersistedQuotaView,
+  readQuotaUiState,
+  writePersistedQuotaView,
+  writeQuotaUiState,
+} from '@/features/quota/uiState';
 
 const KEY = 'quotaPage.uiState';
 
@@ -27,7 +32,12 @@ function installSessionStorage() {
       return store.size;
     },
   };
-  (globalThis as unknown as { window: unknown }).window = { sessionStorage: storage };
+  const localStore = new Map<string, string>();
+  const localStorage = {
+    getItem: (key: string) => localStore.get(key) ?? null,
+    setItem: (key: string, value: string) => void localStore.set(key, value),
+  };
+  (globalThis as unknown as { window: unknown }).window = { sessionStorage: storage, localStorage };
   return storage;
 }
 
@@ -76,5 +86,36 @@ describe('quota ui state', () => {
 
     storage.setItem(KEY, '"a string"');
     expect(readQuotaUiState()).toBeNull();
+  });
+
+  test('keeps burn forecast settings and drops invalid ones', () => {
+    writeQuotaUiState({
+      burn: { collapsed: true, horizonDays: 14, lookback: '3d', manualRates: { claude: 2.5 } },
+    });
+    writeQuotaUiState({ tab: 'claude' });
+    expect(readQuotaUiState()?.burn).toEqual({
+      collapsed: true,
+      horizonDays: 14,
+      lookback: '3d',
+      manualRates: { claude: 2.5 },
+    });
+
+    storage.setItem(
+      KEY,
+      JSON.stringify({
+        burn: { horizonDays: 5, lookback: '1h', manualRates: { claude: -1, nope: 2 } },
+      })
+    );
+    expect(readQuotaUiState()?.burn).toEqual({});
+  });
+
+  test('the quota view survives reloads, defaults to the overview and rejects unknown views', () => {
+    expect(readPersistedQuotaView()).toBe('overview');
+    writePersistedQuotaView('cards');
+    expect(readPersistedQuotaView()).toBe('cards');
+    const { localStorage } = (globalThis as unknown as { window: { localStorage: Storage } })
+      .window;
+    localStorage.setItem('quotaPage.view', 'ledger');
+    expect(readPersistedQuotaView()).toBe('overview');
   });
 });

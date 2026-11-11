@@ -9,7 +9,7 @@ import type { Theme } from '@/types';
 import { STORAGE_KEY_THEME } from '@/utils/constants';
 
 type ResolvedTheme = 'light' | 'dark';
-type AppliedTheme = ResolvedTheme | 'white';
+type AppliedTheme = ResolvedTheme | 'white' | 't3';
 
 interface ThemeState {
   theme: Theme;
@@ -30,22 +30,27 @@ const resolveAutoTheme = (): AppliedTheme => {
 };
 
 const normalizeResolvedTheme = (theme: AppliedTheme): ResolvedTheme => {
-  return theme === 'dark' ? 'dark' : 'light';
+  return theme === 'dark' || theme === 't3' ? 'dark' : 'light';
 };
 
 const resolveTheme = (theme: Theme): AppliedTheme => {
   if (theme === 'auto') {
     return resolveAutoTheme();
   }
-  if (theme === 'white') {
-    return 'white';
-  }
   return theme;
 };
 
+// T3 is a dark variant, so it keeps data-theme='dark' and every dark-only rule still applies.
 const applyTheme = (resolved: AppliedTheme) => {
-  if (resolved === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
+  const root = document.documentElement;
+  if (resolved === 't3') {
+    root.setAttribute('data-theme-variant', 't3');
+  } else {
+    root.removeAttribute('data-theme-variant');
+  }
+
+  if (resolved === 'dark' || resolved === 't3') {
+    root.setAttribute('data-theme', 'dark');
     return;
   }
 

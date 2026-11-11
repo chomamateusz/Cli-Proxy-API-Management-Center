@@ -37,6 +37,7 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'light', label: '纸感' },
   { value: 'white', label: '纯白' },
   { value: 'dark', label: '暗色' },
+  { value: 't3', label: 'T3' },
 ];
 
 const CARD_STAGGER_MS = 50;

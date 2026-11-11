@@ -54,6 +54,7 @@ export interface QuotaTimelineProps {
    */
   quotaFor: (entry: QuotaFileEntry) => QuotaCardState | undefined;
   displayNameFor: (name: string) => string;
+  laneNameFor?: (entry: QuotaFileEntry) => string;
   resolvedTheme: ResolvedTheme;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
@@ -67,6 +68,7 @@ export function QuotaTimeline({
   entries,
   quotaFor,
   displayNameFor,
+  laneNameFor,
   resolvedTheme,
   now: nowProp,
   initialMode = 'weekly',
@@ -94,14 +96,15 @@ export function QuotaTimeline({
     () =>
       entries.map((entry) => ({
         name: getQuotaCacheKey(entry.file),
-        displayName:
-          entry.type === 'devin'
+        displayName: laneNameFor
+          ? laneNameFor(entry)
+          : entry.type === 'devin'
             ? getQuotaDisplayName(entry.file)
             : displayNameFor(entry.file.name),
         provider: entry.type,
         quota: quotaFor(entry),
       })),
-    [entries, quotaFor, displayNameFor]
+    [entries, quotaFor, displayNameFor, laneNameFor]
   );
 
   // Keep the timeline hidden until at least one loaded credential exposes a

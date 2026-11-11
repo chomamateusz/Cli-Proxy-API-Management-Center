@@ -4,7 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import '../src/i18n/index';
 import { QuotaTimeline } from '../src/features/quota/components/QuotaTimeline';
 import type { QuotaFileEntry } from '../src/features/quota/logic';
+import { maskCredentialName } from '../src/features/quota/quotaOverview';
 import { buildKimiQuotaRows } from '../src/utils/quota';
+import { getQuotaAccountLabel } from '../src/utils/quota/identity';
 
 const entries: QuotaFileEntry[] = [
   {
@@ -160,5 +162,37 @@ describe('QuotaTimeline rendering', () => {
     );
 
     expect(markup).toBe('');
+  });
+
+  test('masks Devin identities in lane names when the view hides emails', () => {
+    const email = 'ana-maria@corp.test';
+    const markup = renderToStaticMarkup(
+      createElement(QuotaTimeline, {
+        ...baseProps,
+        entries: [
+          {
+            file: { name: 'devin-shared.json', provider: 'devin', email, authIndex: '7' },
+            type: 'devin',
+          },
+        ],
+        laneNameFor: (entry: QuotaFileEntry) =>
+          maskCredentialName(getQuotaAccountLabel(entry.file).name),
+        quotaFor: () => ({
+          status: 'success',
+          windows: [
+            {
+              id: 'weekly',
+              remainingPercent: 60,
+              resetAtMs: new Date(2026, 7, 1, 12).getTime(),
+              periodHours: 168,
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(markup).toContain('a•••@c•••.test');
+    expect(markup).not.toContain('ana-maria');
+    expect(markup).not.toContain('maria@');
   });
 });

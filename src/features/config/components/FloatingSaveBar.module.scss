@@ -101,7 +101,7 @@
   .savePill:hover:not(:disabled) {
     transform: translateY(-1px);
     background: color-mix(in srgb, var(--text-primary) 86%, var(--bg-secondary));
-    box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 22%, transparent);
+    box-shadow: var(--pill-hover-shadow);
   }
 }
 
