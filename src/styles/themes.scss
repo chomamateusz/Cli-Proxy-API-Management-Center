@@ -85,6 +85,12 @@
   --viz-success: #10b981;
   --viz-failure: #c65746;
 
+  --quota-track: var(--bg-tertiary);
+  --quota-fill-high: var(--success-color);
+  --quota-fill-medium: var(--quota-medium-color);
+  --quota-fill-low: var(--error-color);
+  --quota-low-text: var(--error-color);
+
   // 动效词汇表：内置 ease 太弱，交互反馈统一用强减速曲线。
   // 按压 160ms / 悬停 200ms，UI 动效不超过 300ms。
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
@@ -231,6 +237,8 @@
   --muted-bg: var(--bg-tertiary);
   --muted-foreground: var(--text-secondary);
   --accent-bg: var(--bg-tertiary);
+
+  --quota-low-text: #f1b0a6;
 
   --glass-border: color-mix(in srgb, var(--border-color) 55%, transparent);
 

@@ -39,7 +39,6 @@ export interface ProviderSummary {
   pool: PoolTotal | null;
   /** Claude only: the 7-day Fable bucket pooled the same way. */
   secondaryPool: PoolTotal | null;
-  /** Soonest future reset of the pooled bucket. */
   nextResetAtMs: number | null;
   /** Percentage points that soonest reset gives back to the pool. */
   nextResetGain: number | null;
@@ -230,7 +229,6 @@ export const buildProviderSummary = (
 const EMAIL_PATTERN = /([A-Za-z0-9._%+-]+)@([A-Za-z0-9-]+)((?:\.[A-Za-z0-9-]+)*)/g;
 const MASK = '•••';
 
-/** `tooling@lumen.dev` becomes `t•••@l•••.dev`. */
 export const maskEmail = (text: string): string =>
   text.replace(
     EMAIL_PATTERN,
@@ -252,12 +250,13 @@ export const maskCredentialName = (name: string): string => {
   return `${prefix}${maskEmail(name.slice(prefix.length))}`;
 };
 
-/** `2d 4h`, `19h 12m`, `7m`; units stay unlocalized like the timeline's day labels. */
+/** `118d`, `2d 4h`, `19h 12m`, `7m`; units stay unlocalized like the timeline's day labels. */
 export const formatCountdown = (targetMs: number, nowMs: number): string => {
   const totalMinutes = Math.max(0, Math.ceil((targetMs - nowMs) / MINUTE_MS));
   const days = Math.floor(totalMinutes / (24 * 60));
   const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
   const minutes = totalMinutes % 60;
+  if (days >= 7) return `${days}d`;
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;

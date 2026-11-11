@@ -2,13 +2,15 @@
  * 额度查询页：提供商 tabs + 统一卡网格。
  *
  * 保留的行为契约（重设计不改）：
- * - 现有提供商保持点击加载；Devin 首次可见时主动查询一次，不轮询；
+ * - Cards keep click-to-load. Overview loads each visible credential once and quietly refreshes
+ *   Claude/Codex every 10 minutes so the burn forecast has readings;
+ * - Devin 首次可见时主动查询一次，不轮询；
  * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
  * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
  * - useHeaderRefresh 单槽位：本页唯一注册者，全局刷新 = 重取文件列表。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
 import { Button } from '@/components/ui/Button';
@@ -21,18 +23,25 @@ import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
-import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { getQuotaAccountLabel, getQuotaCacheKey } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
+import { getTypeLabel } from '@/features/authFiles/constants';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
+import { QuotaViewSwitch } from './components/QuotaViewSwitch';
+import { QuotaBurnPanel } from './components/QuotaBurnPanel';
+import { QuotaProviderGroup, type QuotaColumn } from './components/QuotaProviderGroup';
+import { QuotaAccountRow, type QuotaExtrasColumn } from './components/QuotaAccountRow';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
+  QUOTA_PROVIDER_BRAND,
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
   type QuotaSortMode,
   type QuotaTabId,
+  type QuotaView,
 } from './constants';
 import {
   buildTabCounts,
@@ -50,7 +59,17 @@ import type { QuotaProviderType } from './providers/types';
 import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
-import { readQuotaUiState, writeQuotaUiState } from './uiState';
+import { useQuotaAutoRefresh } from './hooks/useQuotaAutoRefresh';
+import { BURN_WINDOW_IDS, burnAccountFromRow } from './burnForecast';
+import { buildLastHourActivity } from './quotaActivity';
+import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
+import { useQuotaReadings } from './quotaReadings';
+import {
+  readPersistedQuotaView,
+  readQuotaUiState,
+  writePersistedQuotaView,
+  writeQuotaUiState,
+} from './uiState';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
@@ -61,6 +80,14 @@ const SKELETON_CARD_COUNT = 6;
  * identity-aware display label. Keep the filename fallback stable for memoization.
  */
 const displayNameFor = (name: string) => name;
+
+const entryKey = (entry: QuotaFileEntry) => `${entry.type}:${getQuotaCacheKey(entry.file)}`;
+
+const EXTRAS_COLUMNS: Partial<Record<QuotaProviderType, QuotaExtrasColumn>> = {
+  claude: 'claude-resets',
+  codex: 'codex-resets',
+  xai: 'xai-credits',
+};
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -76,6 +103,12 @@ export function QuotaPage() {
   );
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<QuotaView>(readPersistedQuotaView);
+  const [showEmails, setShowEmails] = useState(() => readQuotaUiState()?.showEmails === true);
+  const [showExtraBuckets, setShowExtraBuckets] = useState(
+    () => readQuotaUiState()?.showExtraBuckets === true
+  );
+  const isOverview = view === 'overview';
   const searchInputRef = useRef<HTMLInputElement>(null);
   // 页头 + tabs 的入场级联（标题 → meta → 动作 → tabs，级差 70ms）
   const revealRef = useRevealGroup<HTMLDivElement>();
@@ -171,9 +204,11 @@ export function QuotaPage() {
   // 换一次身份，会反复空转下面那个「刷新全部」的 loading 下降沿 effect。
   const tick = useNow(sortMode !== 'default');
   const sortNow = sortMode === 'default' ? 0 : tick;
+  const nowMs = useNow(isOverview);
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
+  const quotaReadings = useQuotaReadings(entries);
   const filteredEntries = useMemo(
     () => filterEntriesBySearch(filterEntriesByTab(entries, tab), search),
     [entries, tab, search]
@@ -301,6 +336,122 @@ export function QuotaPage() {
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 
+  const handleViewChange = useCallback((next: QuotaView) => {
+    setView(next);
+    writePersistedQuotaView(next);
+  }, []);
+
+  useEffect(() => {
+    if (!isOverview || !canUseActions || batchLoading || error) return;
+    const unseen = pageItems.filter((entry) => !getQuota(entry) && !entry.file.disabled);
+    if (unseen.length > 0) void loadQuota(unseen);
+  }, [batchLoading, canUseActions, error, getQuota, isOverview, loadQuota, pageItems]);
+
+  const burnRefreshTargets = useMemo(
+    () => entries.filter((entry) => BURN_WINDOW_IDS[entry.type] && !entry.file.disabled),
+    [entries]
+  );
+  useQuotaAutoRefresh(burnRefreshTargets, isOverview && canUseActions && !error, loadQuota);
+
+  const maskName = showEmails ? displayNameFor : maskCredentialName;
+  const laneNameFor = useCallback(
+    (entry: QuotaFileEntry) => maskName(getQuotaAccountLabel(entry.file).name),
+    [maskName]
+  );
+
+  const activity = useMemo(
+    () =>
+      buildLastHourActivity(
+        filteredEntries.map((entry) => ({
+          key: entryKey(entry),
+          type: entry.type,
+          file: entry.file,
+        }))
+      ),
+    [filteredEntries]
+  );
+
+  const groups = useMemo(() => {
+    if (!isOverview) return [];
+    return QUOTA_TAB_ORDER.flatMap((type) => {
+      const accounts = filteredEntries.filter((entry) => entry.type === type);
+      const items = pageItems.filter((entry) => entry.type === type);
+      if (items.length === 0) return [];
+      const models = new Map(
+        items.map((entry) => [entryKey(entry), buildQuotaRowModel(t, type, getQuota(entry))])
+      );
+      const columns: QuotaColumn[] = [];
+      models.forEach((model) => {
+        [...(model?.metrics ?? []), ...(showExtraBuckets ? (model?.extra ?? []) : [])].forEach(
+          (metric) => {
+            if (!columns.some((column) => column.id === metric.id)) {
+              columns.push({ id: metric.id, label: metric.label });
+            }
+          }
+        );
+      });
+      const busiestEntry = accounts.find((entry) => activity.get(entryKey(entry))?.busiest);
+      const busiestActivity = busiestEntry ? activity.get(entryKey(busiestEntry)) : undefined;
+      return [
+        {
+          type,
+          items,
+          models,
+          columns,
+          summary: buildProviderSummary(t, type, accounts.map(getQuota), nowMs),
+          busiest:
+            busiestEntry && busiestActivity
+              ? {
+                  name: maskName(getQuotaAccountLabel(busiestEntry.file).name),
+                  requests: busiestActivity.requests,
+                  share: busiestActivity.share,
+                }
+              : null,
+        },
+      ];
+    });
+  }, [
+    activity,
+    filteredEntries,
+    getQuota,
+    isOverview,
+    maskName,
+    nowMs,
+    pageItems,
+    showExtraBuckets,
+    t,
+  ]);
+
+  const burnType = isOverview && tab !== 'all' && BURN_WINDOW_IDS[tab] ? tab : null;
+  const burnAccounts = useMemo(
+    () =>
+      burnType
+        ? filteredEntries
+            .filter((entry) => entry.type === burnType)
+            .map((entry) =>
+              burnAccountFromRow(
+                entry.type,
+                buildQuotaRowModel(t, entry.type, getQuota(entry)),
+                (windowId) => quotaReadings[getQuotaCacheKey(entry.file)]?.[windowId] ?? []
+              )
+            )
+        : [],
+    [burnType, filteredEntries, getQuota, quotaReadings, t]
+  );
+
+  const handleToggleShowEmails = useCallback(() => {
+    setShowEmails((value) => {
+      writeQuotaUiState({ showEmails: !value });
+      return !value;
+    });
+  }, []);
+  const handleToggleExtraBuckets = useCallback(() => {
+    setShowExtraBuckets((value) => {
+      writeQuotaUiState({ showExtraBuckets: !value });
+      return !value;
+    });
+  }, []);
+
   /* ---------- 首屏卡片一次性级联入场 ----------
    * 首批数据渲染后立即翻转 cardsAnimated；已挂载的卡片在挂载时捕获过自己的
    * 延迟（QuotaCard 内 useState 初始化），后续切 tab/翻页/刷新新挂载的卡片
@@ -332,6 +483,8 @@ export function QuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        showEmails={isOverview ? showEmails : undefined}
+        onToggleShowEmails={isOverview ? handleToggleShowEmails : undefined}
       />
 
       <section className={styles.workbench}>
@@ -345,6 +498,20 @@ export function QuotaPage() {
             onChange={handleTabChange}
           />
         </div>
+
+        {!loading && burnType && (
+          <QuotaBurnPanel
+            key={burnType}
+            type={burnType}
+            accounts={burnAccounts}
+            nowMs={nowMs}
+            style={
+              QUOTA_PROVIDER_BRAND[burnType]
+                ? ({ '--brand': QUOTA_PROVIDER_BRAND[burnType] } as CSSProperties)
+                : undefined
+            }
+          />
+        )}
 
         <div className={styles.toolbar}>
           <div className={styles.search}>
@@ -373,14 +540,17 @@ export function QuotaPage() {
               </button>
             )}
           </div>
-          <div className={styles.sort}>
-            <Select
-              value={sortMode}
-              options={sortOptions}
-              onChange={handleSortModeChange}
-              ariaLabel={t('quota_management.sort_label')}
-              size="sm"
-            />
+          <div className={styles.toolbarEnd}>
+            <QuotaViewSwitch view={view} onChange={handleViewChange} />
+            <div className={styles.sort}>
+              <Select
+                value={sortMode}
+                options={sortOptions}
+                onChange={handleSortModeChange}
+                ariaLabel={t('quota_management.sort_label')}
+                size="sm"
+              />
+            </div>
           </div>
         </div>
 
@@ -391,11 +561,19 @@ export function QuotaPage() {
         )}
 
         {loading ? (
-          <div className={styles.grid} aria-hidden="true">
-            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={168} rounded={14} />
-            ))}
-          </div>
+          isOverview ? (
+            <div className={styles.rowsSkeleton} aria-hidden="true">
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <Skeleton key={index} height={64} rounded={10} />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.grid} aria-hidden="true">
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <Skeleton key={index} height={168} rounded={14} />
+              ))}
+            </div>
+          )
         ) : isEmpty ? (
           <EmptyState
             title={
@@ -424,6 +602,43 @@ export function QuotaPage() {
               )
             }
           />
+        ) : isOverview ? (
+          <div className={styles.groups}>
+            {groups.map((group) => (
+              <QuotaProviderGroup
+                key={group.type}
+                type={group.type}
+                summary={group.summary}
+                metricColumns={group.columns}
+                extrasColumn={EXTRAS_COLUMNS[group.type] ?? null}
+                busiest={group.busiest}
+                resolvedTheme={resolvedTheme}
+                showExtraBuckets={showExtraBuckets}
+                onToggleExtraBuckets={handleToggleExtraBuckets}
+                brand={QUOTA_PROVIDER_BRAND[group.type]}
+              >
+                {group.items.map((entry) => (
+                  <QuotaAccountRow
+                    key={entryKey(entry)}
+                    entry={entry}
+                    quota={getQuota(entry)}
+                    model={group.models.get(entryKey(entry)) ?? null}
+                    metricColumns={group.columns.map((column) => column.id)}
+                    extrasColumn={EXTRAS_COLUMNS[group.type] ?? null}
+                    label={getQuotaAccountLabel(entry.file)}
+                    providerLabel={getTypeLabel(t, group.type)}
+                    showEmails={showEmails}
+                    nowMs={nowMs}
+                    activity={activity.get(entryKey(entry))}
+                    canRefresh={canUseActions && !entry.file.disabled}
+                    resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                    onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                    onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                  />
+                ))}
+              </QuotaProviderGroup>
+            ))}
+          </div>
         ) : (
           <div className={styles.grid}>
             {pageItems.map((entry, index) => (
@@ -475,6 +690,7 @@ export function QuotaPage() {
           entries={pageItems}
           quotaFor={getQuota}
           displayNameFor={displayNameFor}
+          laneNameFor={isOverview ? laneNameFor : undefined}
           resolvedTheme={resolvedTheme}
         />
       </section>

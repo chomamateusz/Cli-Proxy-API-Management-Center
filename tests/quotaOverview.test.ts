@@ -242,6 +242,7 @@ describe('email masking', () => {
 
 describe('countdown', () => {
   test('shows the two largest units', () => {
+    expect(formatCountdown(now + 118 * 24 * HOUR + 5 * HOUR, now)).toBe('118d');
     expect(formatCountdown(now + 2 * 24 * HOUR + 30 * 60 * 1000, now)).toBe('2d 0h');
     expect(formatCountdown(now + 19 * HOUR + 12 * 60 * 1000, now)).toBe('19h 12m');
     expect(formatCountdown(now + 30 * 1000, now)).toBe('1m');
