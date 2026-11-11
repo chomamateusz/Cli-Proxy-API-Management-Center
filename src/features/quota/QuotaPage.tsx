@@ -3,7 +3,7 @@
  *
  * 保留的行为契约（重设计不改）：
  * - Cards keep click-to-load. Overview loads each visible credential once and quietly refreshes
- *   Claude/Codex every 10 minutes so the burn forecast has readings;
+ *   Claude/Codex and the credential list every 10 minutes so the burn forecast has readings;
  * - Devin 首次可见时主动查询一次，不轮询；
  * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
  * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
@@ -146,6 +146,20 @@ export function QuotaPage() {
       if (isCurrent()) setLoading(false);
     }
   }, [connectionStatus, sessionGeneration, t]);
+
+  const reloadFilesQuietly = useCallback(async () => {
+    if (connectionStatus !== 'connected') return;
+    const requestId = listRequestRef.current;
+    const data = await authFilesApi.list().catch(() => null);
+    if (
+      !data ||
+      requestId !== listRequestRef.current ||
+      sessionGeneration !== useQuotaStore.getState().cacheGeneration
+    ) {
+      return;
+    }
+    setFiles(data.files || []);
+  }, [connectionStatus, sessionGeneration]);
 
   useHeaderRefresh(loadFiles);
 
@@ -351,7 +365,12 @@ export function QuotaPage() {
     () => entries.filter((entry) => BURN_WINDOW_IDS[entry.type] && !entry.file.disabled),
     [entries]
   );
-  useQuotaAutoRefresh(burnRefreshTargets, isOverview && canUseActions && !error, loadQuota);
+  useQuotaAutoRefresh(
+    burnRefreshTargets,
+    isOverview && canUseActions && !error,
+    loadQuota,
+    reloadFilesQuietly
+  );
 
   const maskName = showEmails ? displayNameFor : maskCredentialName;
   const laneNameFor = useCallback(

@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
   appendQuotaReading,
+  lastQuotaReadingAtFrom,
   parseQuotaReadingLog,
+  quotaFetchedAtMs,
   QUOTA_READING_RETENTION_MS,
 } from '@/features/quota/quotaReadings';
+import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 
 const MINUTE = 60 * 1000;
 
@@ -26,6 +29,22 @@ describe('appendQuotaReading', () => {
     expect(appendQuotaReading([first], second)).toEqual([first, second]);
     expect(appendQuotaReading([first, second], third)).toEqual([first, third]);
   });
+
+  test('a load seen late keeps its fetch time and never displaces newer readings', () => {
+    const fetchedAt = Date.parse('2026-10-12T09:00:00Z');
+    const claude: ClaudeQuotaState = {
+      status: 'success',
+      windows: [],
+      observedAt: new Date(fetchedAt).toISOString(),
+    };
+    const codex: CodexQuotaState = { status: 'success', windows: [], loadedAtMs: fetchedAt };
+    expect(quotaFetchedAtMs('claude', claude)).toBe(fetchedAt);
+    expect(quotaFetchedAtMs('codex', codex)).toBe(fetchedAt);
+
+    const newer = [{ at: fetchedAt + 3 * 60 * MINUTE, remaining: 60 }];
+    expect(appendQuotaReading(newer, { at: fetchedAt, remaining: 90 })).toEqual(newer);
+    expect(appendQuotaReading(newer, { at: newer[0].at, remaining: 59 })).toEqual(newer);
+  });
 });
 
 describe('parseQuotaReadingLog', () => {
@@ -46,5 +65,19 @@ describe('parseQuotaReadingLog', () => {
       'work.json': { 'five-hour': [{ at: now - MINUTE, remaining: 50 }] },
     });
     expect(parseQuotaReadingLog('{not json', now)).toEqual({});
+  });
+
+  test('the last reading of an account is its newest across windows', () => {
+    const log = {
+      'work.json': {
+        'seven-day': [{ at: 5, remaining: 90 }],
+        weekly: [
+          { at: 1, remaining: 80 },
+          { at: 9, remaining: 70 },
+        ],
+      },
+    };
+    expect(lastQuotaReadingAtFrom(log, 'work.json')).toBe(9);
+    expect(lastQuotaReadingAtFrom(log, 'other.json')).toBeNull();
   });
 });

@@ -27,14 +27,15 @@ interface BatchFetchResult {
   errorStatus?: number;
 }
 
-export interface LoadQuotaOptions {
-  /** Keeps the current numbers on screen while loading and when the fetch fails. */
-  quiet?: boolean;
-}
-
 export interface QuotaLoadFailure {
   cacheKey: string;
   status?: number;
+}
+
+export interface LoadQuotaOptions {
+  /** Keeps the current numbers on screen while loading and, unless surfaced, when the fetch fails. */
+  quiet?: boolean;
+  surfaceFailure?: (failure: QuotaLoadFailure) => boolean;
 }
 
 export function useQuotaBatchLoader() {
@@ -46,9 +47,9 @@ export function useQuotaBatchLoader() {
   const loadQuota = useCallback(
     async (
       targets: QuotaFileEntry[],
-      { quiet = false }: LoadQuotaOptions = {}
-    ): Promise<QuotaLoadFailure[]> => {
-      if (loadingRef.current) return [];
+      { quiet = false, surfaceFailure }: LoadQuotaOptions = {}
+    ): Promise<QuotaLoadFailure[] | null> => {
+      if (loadingRef.current) return null;
       if (targets.length === 0) return [];
       const failures: QuotaLoadFailure[] = [];
       loadingRef.current = true;
@@ -111,7 +112,13 @@ export function useQuotaBatchLoader() {
             setQuota((prev) => {
               const nextState = { ...prev };
               results.forEach((result) => {
-                if (quiet && result.status === 'error') return;
+                if (
+                  quiet &&
+                  result.status === 'error' &&
+                  !surfaceFailure?.({ cacheKey: result.cacheKey, status: result.errorStatus })
+                ) {
+                  return;
+                }
                 commitIfQuotaCacheCurrent(
                   cacheGeneration,
                   () => {

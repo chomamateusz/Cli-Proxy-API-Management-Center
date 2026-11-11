@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuotaStore } from '@/stores';
+import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
+import { parseIsoToMs } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { HOUR_MS, MINUTE_MS } from '@/utils/time/durations';
-import type { BurnReading } from './burnForecast';
+import { BURN_WINDOW_IDS, type BurnReading } from './burnForecast';
 import type { QuotaFileEntry } from './logic';
 import type { QuotaCardState } from './providers';
+import type { QuotaProviderType } from './providers/types';
 import { buildQuotaRowModel } from './quotaOverview';
 
 /** Account cache key → quota window id → readings, oldest first. */
@@ -21,8 +24,9 @@ export function appendQuotaReading(
   readings: readonly BurnReading[],
   reading: BurnReading
 ): BurnReading[] {
+  if (readings.some((item) => item.at >= reading.at)) return [...readings];
   const cutoff = reading.at - QUOTA_READING_RETENTION_MS;
-  const kept = readings.filter((item) => item.at >= cutoff && item.at < reading.at);
+  const kept = readings.filter((item) => item.at >= cutoff);
   const last = kept[kept.length - 1];
   if (last?.remaining !== reading.remaining) return [...kept, reading];
   if (reading.at - last.at < MINUTE_MS) return kept;
@@ -64,7 +68,8 @@ export function parseQuotaReadingLog(raw: string | null, nowMs: number): QuotaRe
   return log;
 }
 
-const readLog = (nowMs: number): QuotaReadingLog => {
+/** Read from storage rather than React state so loads made by other open tabs count too. */
+export const readQuotaReadingLog = (nowMs: number): QuotaReadingLog => {
   if (typeof window === 'undefined') return {};
   try {
     return parseQuotaReadingLog(window.localStorage.getItem(STORAGE_KEY), nowMs);
@@ -82,15 +87,21 @@ const writeLog = (log: QuotaReadingLog) => {
   }
 };
 
-/** Read from storage rather than React state so loads made by other open tabs count too. */
-export function lastQuotaReadingAt(accountKey: string, nowMs: number): number | null {
-  const windows = readLog(nowMs)[accountKey];
+export function lastQuotaReadingAtFrom(log: QuotaReadingLog, accountKey: string): number | null {
+  const windows = log[accountKey];
   if (!windows) return null;
   const latest = Object.values(windows)
     .map((readings) => readings[readings.length - 1]?.at)
     .filter((at): at is number => at !== undefined);
   return latest.length > 0 ? Math.max(...latest) : null;
 }
+
+/** A load can be committed, and seen here, long after it was fetched. */
+export const quotaFetchedAtMs = (type: QuotaProviderType, state: QuotaCardState): number | null => {
+  if (type === 'claude') return parseIsoToMs((state as ClaudeQuotaState).observedAt);
+  if (type === 'codex') return (state as CodexQuotaState).loadedAtMs ?? null;
+  return null;
+};
 
 // Every fetch commits a new state object, so identity tells which loads were already saved.
 const recordedStates = new WeakSet<object>();
@@ -99,42 +110,40 @@ export function useQuotaReadings(entries: readonly QuotaFileEntry[]): QuotaReadi
   const { t } = useTranslation();
   const claude = useQuotaStore((state) => state.claudeQuota);
   const codex = useQuotaStore((state) => state.codexQuota);
-  const kimi = useQuotaStore((state) => state.kimiQuota);
-  const xai = useQuotaStore((state) => state.xaiQuota);
-  const [log, setLog] = useState<QuotaReadingLog>(() => readLog(Date.now()));
+  const [log, setLog] = useState<QuotaReadingLog>(() => readQuotaReadingLog(Date.now()));
 
   useEffect(() => {
-    const quotaMaps = { claude, codex, kimi, xai } as unknown as Partial<
+    const quotaMaps = { claude, codex } as unknown as Partial<
       Record<QuotaFileEntry['type'], Record<string, QuotaCardState>>
     >;
     const nowMs = Date.now();
     let next: QuotaReadingLog | null = null;
     entries.forEach(({ file, type }) => {
+      const windowId = BURN_WINDOW_IDS[type];
       const key = getQuotaCacheKey(file);
       const state = quotaMaps[type]?.[key];
-      if (!state || state.status !== 'success' || recordedStates.has(state)) return;
+      if (!windowId || !state || state.status !== 'success' || recordedStates.has(state)) return;
       recordedStates.add(state);
-      const model = buildQuotaRowModel(t, type, state);
-      if (!model) return;
-      const updated: QuotaReadingLog = next ?? readLog(nowMs);
-      [...model.metrics, ...model.extra].forEach((metric) => {
-        if (metric.remainingPercent === null) return;
-        const windows = updated[key] ?? {};
-        updated[key] = {
-          ...windows,
-          [metric.id]: appendQuotaReading(windows[metric.id] ?? [], {
-            at: nowMs,
-            remaining: metric.remainingPercent,
-          }),
-        };
-      });
+      const remaining = buildQuotaRowModel(t, type, state)?.metrics.find(
+        (metric) => metric.id === windowId
+      )?.remainingPercent;
+      if (remaining === undefined || remaining === null) return;
+      const updated: QuotaReadingLog = next ?? readQuotaReadingLog(nowMs);
+      const windows = updated[key] ?? {};
+      updated[key] = {
+        ...windows,
+        [windowId]: appendQuotaReading(windows[windowId] ?? [], {
+          at: quotaFetchedAtMs(type, state) ?? nowMs,
+          remaining,
+        }),
+      };
       next = updated;
     });
     if (next) {
       writeLog(next);
       setLog(next);
     }
-  }, [entries, claude, codex, kimi, xai, t]);
+  }, [entries, claude, codex, t]);
 
   return log;
 }

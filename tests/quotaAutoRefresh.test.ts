@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   QUOTA_AUTO_REFRESH_MS,
   pickAutoRefreshTargets,
+  shouldSurfaceQuietFailure,
 } from '../src/features/quota/hooks/useQuotaAutoRefresh';
 import type { QuotaFileEntry } from '../src/features/quota/logic';
 
@@ -34,5 +35,20 @@ describe('pickAutoRefreshTargets', () => {
     expect(
       names(pickAutoRefreshTargets(accounts, NOW + 6 * MINUTE, () => null, backoff))
     ).toContain('never.json');
+  });
+});
+
+describe('shouldSurfaceQuietFailure', () => {
+  test('keeps the last numbers through a one-off failure and a rate limit', () => {
+    expect(shouldSurfaceQuietFailure(500, false)).toBe(false);
+    expect(shouldSurfaceQuietFailure(undefined, false)).toBe(false);
+    expect(shouldSurfaceQuietFailure(429, true)).toBe(false);
+  });
+
+  test('shows the error for a revoked token or a second failure in a row', () => {
+    expect(shouldSurfaceQuietFailure(401, false)).toBe(true);
+    expect(shouldSurfaceQuietFailure(403, false)).toBe(true);
+    expect(shouldSurfaceQuietFailure(500, true)).toBe(true);
+    expect(shouldSurfaceQuietFailure(undefined, true)).toBe(true);
   });
 });
