@@ -14,7 +14,12 @@ export interface ClaudeGrantFixture {
   label: string;
   left: number;
   endsInMs: number;
+  requiresLimit?: boolean;
 }
+
+const FULL_RESET = 'One full limit reset (November 2026)';
+const FABLE_RESET =
+  'New model launch: one Fable reset for Max, Team Premium and Enterprise Premium';
 
 export interface ClaudeFixture {
   email: string;
@@ -55,7 +60,10 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 8, resetInMs: 19 * HOUR_MS + 12 * MINUTE_MS },
     fiveHour: { used: 12, resetInMs: 3 * HOUR_MS },
     opus: { used: 30, resetInMs: 19 * HOUR_MS + 12 * MINUTE_MS },
-    grants: [{ label: 'model', left: 1, endsInMs: 118 * DAY_MS }],
+    grants: [
+      { label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS },
+      { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS },
+    ],
     traffic: busy(9),
   },
   {
@@ -65,10 +73,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 0, resetInMs: 2 * DAY_MS },
     fiveHour: { used: 0, resetInMs: null },
     opus: { used: 0, resetInMs: 2 * DAY_MS },
-    grants: [
-      { label: 'account', left: 1, endsInMs: 35 * DAY_MS },
-      { label: 'model', left: 3, endsInMs: 118 * DAY_MS },
-    ],
+    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: quiet(),
   },
   {
@@ -79,7 +84,10 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 0, resetInMs: 5 * DAY_MS + 10 * HOUR_MS },
     fiveHour: { used: 0, resetInMs: null },
     opus: { used: 0, resetInMs: 5 * DAY_MS + 10 * HOUR_MS },
-    grants: [{ label: 'model', left: 1, endsInMs: 118 * DAY_MS }],
+    grants: [
+      { label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS },
+      { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS, requiresLimit: true },
+    ],
     traffic: busy(3),
   },
   {
@@ -90,7 +98,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 78, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
     fiveHour: { used: 64, resetInMs: 2 * HOUR_MS },
     opus: { used: 91, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
-    grants: [{ label: 'model', left: 1, endsInMs: 118 * DAY_MS }],
+    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: busy(14),
   },
   {
@@ -101,7 +109,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
     fiveHour: { used: 0, resetInMs: null },
     opus: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
-    grants: [{ label: 'model', left: 2, endsInMs: 118 * DAY_MS }],
+    grants: [{ label: FABLE_RESET, left: 2, endsInMs: 117 * DAY_MS }],
     traffic: quiet(),
   },
   {
@@ -111,7 +119,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     fable: { used: 1, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
     fiveHour: { used: 0, resetInMs: null },
     opus: { used: 0, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
-    grants: [{ label: 'model', left: 1, endsInMs: 118 * DAY_MS }],
+    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: busy(2),
   },
 ];
