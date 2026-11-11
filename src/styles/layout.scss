@@ -1093,6 +1093,13 @@
     box-shadow: none;
   }
 
+  .main-header .language-menu-popover,
+  .main-header .theme-menu-popover {
+    background: var(--floating-surface);
+    border-color: var(--border-primary);
+    box-shadow: none;
+  }
+
   .nav-tooltip {
     background: var(--floating-surface);
     color: var(--text-primary);

@@ -85,6 +85,8 @@
   --viz-success: #10b981;
   --viz-failure: #c65746;
 
+  --pill-hover-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 22%, transparent);
+
   --quota-track: var(--bg-tertiary);
   --quota-fill-high: var(--success-color);
   --quota-fill-medium: var(--quota-medium-color);
@@ -294,6 +296,7 @@
 
   --shadow: none;
   --shadow-lg: none;
+  --pill-hover-shadow: none;
 
   --amber-color: #fbbf24;
   --amber-text: #fcd34d;
