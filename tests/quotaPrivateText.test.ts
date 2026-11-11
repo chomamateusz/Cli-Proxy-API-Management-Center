@@ -10,16 +10,16 @@ const EMAIL = 'tiago@example.com';
 const render = (text: string, showEmails: boolean) =>
   renderToStaticMarkup(createElement(PrivateText, { text, className: 'name', showEmails }));
 
-/** Attributes holding the email; a tooltip or screen reader would expose these. */
-const emailAttributes = (markup: string) =>
-  [...markup.matchAll(/[\w-]+="([^"]*)"/g)].filter(([, value]) => value.includes(EMAIL));
-
 describe('quota account email privacy', () => {
-  test('blurs emails behind a click-to-reveal button without leaking them in attributes', () => {
+  test('masks emails like the timeline does, behind a click-to-reveal button', () => {
     const markup = render(EMAIL, false);
-    expect(markup).toMatch(/^<button type="button"[^>]*aria-label="[^"]+"[^>]*><span[^>]*>/);
-    expect(markup).toContain(`>${EMAIL}</span></button>`);
-    expect(emailAttributes(markup)).toEqual([]);
+    expect(markup).toMatch(/^<button type="button"[^>]*aria-label="[^"]+"/);
+    expect(markup).toContain('>t•••@e•••.com</button>');
+    expect(markup).not.toContain(EMAIL);
+  });
+
+  test('masks only the email part of a credential file name', () => {
+    expect(render(`claude-${EMAIL}.json`, false)).toContain('>claude-t•••@e•••.com.json</button>');
   });
 
   test('shows plain text when "Show emails" is on', () => {
@@ -33,7 +33,7 @@ describe('quota account email privacy', () => {
     expect(syncRevealState(shown, false).revealed).toBe(false);
   });
 
-  test('never blurs nicknames', () => {
+  test('never masks nicknames', () => {
     expect(render('Tiago account', false)).toBe(
       '<span class="name" title="Tiago account">Tiago account</span>'
     );

@@ -1,10 +1,8 @@
-// Callers clip overflow for ellipsis, which would cut the blur into a hard rectangle; the padding
-// gives it room to fade and the negative margin keeps the layout where it was.
 .private {
+  display: block;
   width: fit-content;
   max-width: 100%;
-  padding: 6px 10px;
-  margin: -6px -10px;
+  padding: 0;
   border: 0;
   background: none;
   text-align: left;
@@ -12,31 +10,6 @@
 
   &:focus-visible {
     outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
-  }
-}
-
-.privateText {
-  display: block;
-  padding: 6px 10px;
-  margin: -6px -10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 7px currentColor;
-  user-select: none;
-  transition:
-    text-shadow var(--dur-press, 160ms) ease,
-    -webkit-text-fill-color var(--dur-press, 160ms) ease;
-
-  .private[data-revealed] & {
-    -webkit-text-fill-color: currentColor;
-    text-shadow: none;
-    user-select: text;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
+    outline-offset: 2px;
   }
 }

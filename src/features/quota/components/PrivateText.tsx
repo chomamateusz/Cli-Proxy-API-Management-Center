@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { maskCredentialName } from '../quotaOverview';
 import { syncRevealState, type RevealState } from './revealState';
 import styles from './PrivateText.module.scss';
 
@@ -29,13 +30,12 @@ export function PrivateText({
     <button
       type="button"
       className={`${className} ${styles.private}`}
-      data-revealed={revealed || undefined}
       title={hint}
-      // While blurred, announce the action instead of reading the hidden email aloud.
+      // While masked, announce the action instead of reading the bullets aloud.
       aria-label={revealed ? undefined : hint}
       onClick={() => setRevealState({ revealed: !revealed, showEmails })}
     >
-      <span className={styles.privateText}>{text}</span>
+      {revealed ? text : maskCredentialName(text)}
     </button>
   );
 }
