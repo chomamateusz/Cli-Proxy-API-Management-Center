@@ -224,8 +224,8 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
   };
 
   const renderExtras = () => {
-    if (status !== 'success' || !quota) return null;
     if (extrasColumn === 'claude-resets') {
+      if (status !== 'success' && status !== 'error') return null;
       return (
         <>
           {claudeReset.lines.map((line) => (
@@ -252,6 +252,7 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
         </>
       );
     }
+    if (status !== 'success' || !quota) return null;
     if (extrasColumn === 'codex-resets') {
       const codex = quota as CodexQuotaState;
       const available = codex.rateLimitResetCreditsAvailableCount;

@@ -87,7 +87,7 @@ export function QuotaCard(props: QuotaCardProps) {
     quota?.error || t('common.unknown_error')
   );
   // Claude banked resets join the plan chip row; their expiry list follows it.
-  const showClaudeReset = entry.type === 'claude' && status === 'success';
+  const showClaudeReset = entry.type === 'claude' && (status === 'success' || status === 'error');
   const claudePlanItems = showClaudeReset ? (
     <span className={quotaClasses.codexPlanItem}>
       <span className={quotaClasses.codexPlanLabel}>{t('claude_reset.remaining')}</span>
@@ -163,9 +163,12 @@ export function QuotaCard(props: QuotaCardProps) {
             ))}
           </div>
         ) : status === 'error' ? (
-          <div className={styles.errorStrip} role="alert">
-            {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
-          </div>
+          <>
+            <div className={styles.errorStrip} role="alert">
+              {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
+            </div>
+            {!retainedClaudeUsage && claudeAfterPlan}
+          </>
         ) : quota && !retainedClaudeUsage ? (
           <adapter.Body
             quota={quota}

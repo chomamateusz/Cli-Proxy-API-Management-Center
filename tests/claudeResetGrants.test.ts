@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, spyOn, test } from 'bun:test';
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { apiClient } from '../src/services/api/client';
 import {
   anthropicResetGrantBlocker,
@@ -16,6 +19,7 @@ import { apiCallApi, type ApiCallRequest } from '../src/services/api/apiCall';
 import type { AuthFileCooldownResetResponse } from '../src/services/api/authFiles';
 import {
   createResetGrantOperations,
+  resetGrantOperations,
   ResetGrantPreflightError,
   resetGrantFailureMessageKey,
   RETRY_WINDOW_MS,
@@ -24,6 +28,18 @@ import {
   planResetGrantLines,
   resetGrantBlock,
 } from '../src/features/quota/providers/claude/resetGrantAvailability';
+
+for (const sheet of ['QuotaBody', 'QuotaCard', 'QuotaAccountRow', 'PrivateText']) {
+  mock.module(
+    join(import.meta.dir, `../src/features/quota/components/${sheet}.module.scss`),
+    () => ({
+      default: new Proxy({}, { get: (_, key) => (typeof key === 'string' ? key : undefined) }),
+    })
+  );
+}
+const { default: i18n } = await import('@/i18n');
+const { QuotaCard } = await import('@/features/quota/components/QuotaCard');
+const { QuotaAccountRow } = await import('@/features/quota/components/QuotaAccountRow');
 
 const organization = '11111111-2222-3333-4444-555555555555';
 const grant = { id: 'test-grant', resets_total: 2, resets_left: 2, usable_now: true };
@@ -752,6 +768,52 @@ test('an unresolved claim offers retry only on its grant and locks the others', 
     label: 'Fable',
     resetsLeft: null,
   });
+});
+
+test('a failed quota read keeps the unresolved claim Retry and warning on card and row', async () => {
+  await i18n.changeLanguage('en');
+  const inspect = spyOn(resetGrantOperations, 'inspect').mockReturnValue({
+    grantId: 'b',
+    label: 'Fable',
+    organization,
+    requestId: 'request',
+    createdAt: Date.now(),
+  });
+  try {
+    const entry = { file: { name: 'claude.json', auth_index: '1' }, type: 'claude' as const };
+    const quota = { status: 'error' as const, windows: [], error: 'proxy down' };
+    const common = {
+      entry,
+      quota,
+      canRefresh: true,
+      resetting: false,
+      onRefresh() {},
+      onReset() {},
+    };
+    const views = [
+      renderToStaticMarkup(createElement(QuotaCard, { ...common, resolvedTheme: 'light' })),
+      renderToStaticMarkup(
+        createElement(QuotaAccountRow, {
+          ...common,
+          model: null,
+          metricColumns: [],
+          extrasColumn: 'claude-resets',
+          label: { name: 'claude.json', detail: null },
+          nameInMessages: 'claude.json',
+          providerLabel: 'Claude',
+          showEmails: true,
+          nowMs: Date.now(),
+        })
+      ),
+    ];
+    for (const markup of views) {
+      expect(markup).toContain('proxy down');
+      expect(markup).toContain('aria-label="Retry “Fable”"');
+      expect(markup).toContain(i18n.t('claude_reset.unknown'));
+    }
+  } finally {
+    inspect.mockRestore();
+  }
 });
 
 test('grant actions spend the clicked grant through the shared confirmation', async () => {
