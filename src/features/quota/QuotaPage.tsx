@@ -23,7 +23,12 @@ import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
-import { getQuotaAccountLabel, getQuotaCacheKey } from '@/utils/quota/identity';
+import {
+  getQuotaAccountIdentities,
+  getQuotaAccountLabel,
+  getQuotaCacheKey,
+  type QuotaAccountIdentity,
+} from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { QuotaHeader } from './components/QuotaHeader';
@@ -221,6 +226,25 @@ export function QuotaPage() {
   const nowMs = useNow(isOverview);
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
+  const identities = useMemo(() => {
+    const byEntry = new Map<string, QuotaAccountIdentity>();
+    QUOTA_TAB_ORDER.forEach((type) => {
+      const ofType = entries.filter((entry) => entry.type === type);
+      getQuotaAccountIdentities(ofType.map((entry) => entry.file)).forEach((identity, index) =>
+        byEntry.set(entryKey(ofType[index]), identity)
+      );
+    });
+    return byEntry;
+  }, [entries]);
+  const identityFor = useCallback(
+    (entry: QuotaFileEntry): QuotaAccountIdentity => {
+      const identity = identities.get(entryKey(entry));
+      if (identity) return identity;
+      const label = getQuotaAccountLabel(entry.file);
+      return { label, laneName: label.name };
+    },
+    [identities]
+  );
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
   const quotaReadings = useQuotaReadings(entries);
   const filteredEntries = useMemo(
@@ -374,8 +398,8 @@ export function QuotaPage() {
 
   const maskName = showEmails ? displayNameFor : maskCredentialName;
   const laneNameFor = useCallback(
-    (entry: QuotaFileEntry) => maskName(getQuotaAccountLabel(entry.file).name),
-    [maskName]
+    (entry: QuotaFileEntry) => maskName(identityFor(entry).laneName),
+    [identityFor, maskName]
   );
 
   const activity = useMemo(
@@ -421,7 +445,7 @@ export function QuotaPage() {
           busiest:
             busiestEntry && busiestActivity
               ? {
-                  name: maskName(getQuotaAccountLabel(busiestEntry.file).name),
+                  name: laneNameFor(busiestEntry),
                   requests: busiestActivity.requests,
                   share: busiestActivity.share,
                 }
@@ -434,7 +458,7 @@ export function QuotaPage() {
     filteredEntries,
     getQuota,
     isOverview,
-    maskName,
+    laneNameFor,
     nowMs,
     pageItems,
     showExtraBuckets,
@@ -644,15 +668,20 @@ export function QuotaPage() {
                     model={group.models.get(entryKey(entry)) ?? null}
                     metricColumns={group.columns.map((column) => column.id)}
                     extrasColumn={EXTRAS_COLUMNS[group.type] ?? null}
-                    label={getQuotaAccountLabel(entry.file)}
+                    label={identityFor(entry).label}
+                    nameInMessages={laneNameFor(entry)}
                     providerLabel={getTypeLabel(t, group.type)}
                     showEmails={showEmails}
                     nowMs={nowMs}
                     activity={activity.get(entryKey(entry))}
                     canRefresh={canUseActions && !entry.file.disabled}
                     resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                    onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                    onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                    onRefresh={() =>
+                      void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type], laneNameFor(entry))
+                    }
+                    onReset={() =>
+                      resetQuota(entry.file, QUOTA_ADAPTERS[entry.type], laneNameFor(entry))
+                    }
                   />
                 ))}
               </QuotaProviderGroup>

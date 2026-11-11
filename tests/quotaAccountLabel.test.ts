@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AuthFileItem } from '@/types';
-import { getQuotaAccountLabel } from '@/utils/quota/identity';
+import { getQuotaAccountIdentities, getQuotaAccountLabel } from '@/utils/quota/identity';
 
 const claude = (extra: Partial<AuthFileItem> = {}): AuthFileItem => ({
   name: 'claude-6d4d43ff-lucas@example.com.json',
@@ -37,6 +37,24 @@ describe('quota account label', () => {
   test('never shows the account field, which can hold an API key', () => {
     const label = getQuotaAccountLabel(claude({ account: 'sk-secret', note: 'Work' }));
     expect(JSON.stringify(label)).not.toContain('sk-secret');
+  });
+
+  test('names the file when credentials of one provider share an email', () => {
+    const email = 'john@example.com';
+    const files: AuthFileItem[] = [
+      { name: `codex-aaaa1111-${email}-plus.json`, provider: 'codex', email },
+      { name: `codex-bbbb2222-${email}-team.json`, provider: 'codex', email },
+      {
+        name: 'codex-cccc3333-solo@example.com-pro.json',
+        provider: 'codex',
+        email: 'solo@example.com',
+      },
+    ];
+    expect(getQuotaAccountIdentities(files)).toEqual([
+      { label: { name: email, detail: files[0].name }, laneName: files[0].name },
+      { label: { name: email, detail: files[1].name }, laneName: files[1].name },
+      { label: { name: 'solo@example.com', detail: null }, laneName: 'solo@example.com' },
+    ]);
   });
 
   test('keeps same-file Devin identities apart', () => {

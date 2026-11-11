@@ -31,6 +31,7 @@ export interface QuotaAccountRowProps {
   metricColumns: readonly string[];
   extrasColumn: QuotaExtrasColumn;
   label: QuotaAccountLabel;
+  nameInMessages: string;
   providerLabel: string;
   showEmails: boolean;
   nowMs: number;
@@ -111,6 +112,7 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     metricColumns,
     extrasColumn,
     label,
+    nameInMessages,
     providerLabel,
     showEmails,
     nowMs,
@@ -130,7 +132,8 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     entry.type === 'claude' && status !== 'idle',
     !canRefresh || loading || resetting,
     quota,
-    onRefresh
+    onRefresh,
+    nameInMessages
   );
   const canResetCodex =
     status === 'success' &&
