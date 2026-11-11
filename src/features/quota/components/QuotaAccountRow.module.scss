@@ -50,6 +50,12 @@
   min-width: 0;
 }
 
+.metricLabel {
+  display: none;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
 .metricValue {
   display: flex;
   align-items: baseline;
@@ -309,5 +315,9 @@
 
   .metricEmpty {
     display: none;
+  }
+
+  .metricLabel {
+    display: block;
   }
 }

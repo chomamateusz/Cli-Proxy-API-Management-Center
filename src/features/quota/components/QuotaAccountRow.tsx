@@ -49,6 +49,9 @@ function MetricCell({ metric, nowMs }: { metric: QuotaMetric; nowMs: number }) {
   const resetAt = metric.resetAtMs !== null && metric.resetAtMs > nowMs ? metric.resetAtMs : null;
   return (
     <div className={styles.metric} data-tone={tone}>
+      <div className={styles.metricLabel} aria-hidden="true">
+        {metric.label}
+      </div>
       <div className={styles.metricValue}>
         {t('quota_overview.left', { value: formatPercent(metric.remainingPercent) })}
         {tone === 'low' && <span className={styles.lowTag}>{t('quota_overview.low')}</span>}
