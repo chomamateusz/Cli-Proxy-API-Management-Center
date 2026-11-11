@@ -2189,7 +2189,8 @@
     "light": "Giấy len",
     "white": "Trắng tinh",
     "dark": "Tối",
-    "auto": "Theo hệ thống"
+    "auto": "Theo hệ thống",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "Mở rộng thanh bên",

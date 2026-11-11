@@ -1066,3 +1066,36 @@
     }
   }
 }
+
+[data-theme-variant='t3'] {
+  .sidebar {
+    background: var(--bg-secondary);
+  }
+
+  .sidebar .nav-item.active {
+    background: var(--bg-tertiary);
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .top-gradient-blur {
+    display: none;
+  }
+
+  .main-header .header-actions,
+  .main-header .mobile-sidebar-actions {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    box-shadow: none;
+  }
+
+  .main-header .sidebar-toggle-floating {
+    box-shadow: none;
+  }
+
+  .nav-tooltip {
+    background: var(--floating-surface);
+    color: var(--text-primary);
+    box-shadow: var(--floating-shadow);
+  }
+}

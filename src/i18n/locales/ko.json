@@ -2233,7 +2233,8 @@
     "light": "양모 종이",
     "white": "순백",
     "dark": "다크",
-    "auto": "시스템 설정 따름"
+    "auto": "시스템 설정 따름",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "사이드바 펼치기",

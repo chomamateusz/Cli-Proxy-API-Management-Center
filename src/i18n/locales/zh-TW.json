@@ -2260,7 +2260,8 @@
     "light": "羊毛紙",
     "white": "純白",
     "dark": "深色",
-    "auto": "跟隨系統"
+    "auto": "跟隨系統",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "展開側邊欄",

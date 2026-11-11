@@ -309,6 +309,17 @@ const THEME_CARDS: Array<{
       textMuted: '#9c958d',
     },
   },
+  {
+    key: 't3',
+    labelKey: 'theme.t3',
+    colors: {
+      bg: '#000000',
+      card: '#101010',
+      border: '#262626',
+      text: '#f5f5f5',
+      textMuted: '#8a8a8a',
+    },
+  },
 ];
 
 export function MainLayout() {
@@ -1088,7 +1099,7 @@ export function MainLayout() {
             >
               {theme === 'auto'
                 ? headerIcons.autoTheme
-                : theme === 'dark'
+                : theme === 'dark' || theme === 't3'
                   ? headerIcons.moon
                   : theme === 'white'
                     ? headerIcons.whiteTheme

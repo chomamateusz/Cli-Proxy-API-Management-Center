@@ -2232,7 +2232,8 @@
     "light": "羊毛纸",
     "white": "纯白",
     "dark": "暗色",
-    "auto": "跟随系统"
+    "auto": "跟随系统",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "展开侧边栏",

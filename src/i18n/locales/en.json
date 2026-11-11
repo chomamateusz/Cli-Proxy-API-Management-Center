@@ -2233,7 +2233,8 @@
     "light": "Wool Paper",
     "white": "Pure White",
     "dark": "Dark",
-    "auto": "Follow system"
+    "auto": "Follow system",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "Expand sidebar",

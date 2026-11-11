@@ -2233,7 +2233,8 @@
     "light": "Yün Kağıt",
     "white": "Saf Beyaz",
     "dark": "Koyu",
-    "auto": "Sistemi İzle"
+    "auto": "Sistemi İzle",
+    "t3": "T3"
   },
   "sidebar": {
     "toggle_expand": "Kenar Çubuğunu Genişlet",
