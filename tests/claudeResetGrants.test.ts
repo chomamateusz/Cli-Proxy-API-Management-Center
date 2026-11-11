@@ -27,6 +27,7 @@ import {
 import {
   planResetGrantLines,
   resetGrantBlock,
+  type ResetGrantActionBlock,
 } from '../src/features/quota/providers/claude/resetGrantAvailability';
 
 for (const sheet of ['QuotaBody', 'QuotaCard', 'QuotaAccountRow', 'PrivateText']) {
@@ -643,9 +644,9 @@ test('read authentication refusals retain a safe diagnostic code', async () => {
   }
 });
 
-test('all grant messages and confirmation are translated in six locales', async () => {
+test('all grant messages and confirmation are translated in seven locales', async () => {
   const locales = await Promise.all(
-    ['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko'].map(
+    ['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko', 'tr'].map(
       async (locale) => (await Bun.file(`src/i18n/locales/${locale}.json`).json()).claude_reset
     )
   );
@@ -668,6 +669,23 @@ test('all grant messages and confirmation are translated in six locales', async 
       'expired',
     ]) {
       expect(typeof locale[key]).toBe('string');
+    }
+    for (const block of [
+      'ineligible',
+      'unknown_grant',
+      'paused',
+      'not_usable',
+      'exhausted',
+      'not_limited',
+      'not_started',
+      'grant_expired',
+      'cooldown',
+      'busy',
+      'unavailable',
+      'other_pending',
+      'retry_expired',
+    ] satisfies ResetGrantActionBlock[]) {
+      expect(typeof locale[`why_${block}`]).toBe('string');
     }
   }
 });
