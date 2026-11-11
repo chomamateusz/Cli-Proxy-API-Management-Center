@@ -44,7 +44,7 @@ export interface ResetGrantLine {
   block: ResetGrantActionBlock | null;
 }
 
-/** An unresolved claim stays listed after upstream empties or drops it, so its retry stays reachable. */
+/** A pending claim stays listed after upstream drops its grant, so Retry stays reachable. */
 export function planResetGrantLines(
   status: AnthropicResetGrantStatus | null,
   pending: ResetGrantPending | undefined,

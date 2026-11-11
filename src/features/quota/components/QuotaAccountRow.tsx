@@ -97,7 +97,9 @@ function ResetLine({
   return (
     <div className={styles.resetLine}>
       {count !== null && <span className={styles.resetCount}>{count}</span>}
-      <span className={styles.resetLabel}>{label}</span>
+      <span className={styles.resetLabel} title={label}>
+        {label}
+      </span>
       {endsAtMs !== null && endsAtMs > nowMs && (
         <span className={styles.resetExpiry} title={formatInstantShort(endsAtMs)}>
           <IconTimer size={12} aria-hidden="true" />
