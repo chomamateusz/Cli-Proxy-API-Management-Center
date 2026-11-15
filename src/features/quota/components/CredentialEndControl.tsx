@@ -33,7 +33,6 @@ export interface CredentialEndControlProps {
   unusedResets?: number;
   disabled?: boolean;
   actions: CredentialEndActions;
-  /** Fixed clock for static rendering; defaults to the shared minute clock. */
   nowMs?: number;
 }
 

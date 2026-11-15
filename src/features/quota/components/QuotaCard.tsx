@@ -47,7 +47,6 @@ export type QuotaCardProps = {
   onReset: () => void;
   canEditEnd: boolean;
   endActions: CredentialEndActions;
-  /** Fixed clock for static rendering; defaults to the shared minute clock. */
   nowMs?: number;
 };
 

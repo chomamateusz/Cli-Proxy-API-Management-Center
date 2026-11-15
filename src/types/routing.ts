@@ -85,7 +85,6 @@ export interface RoutingMember {
   modelSource: RoutingModelSource;
   /** Credentials only. */
   unavailable: boolean;
-  /** Credentials only; the list verdict, which the clock can overtake. */
   end: ReportedCredentialEnd;
   cooldowns: AuthFileCooldownSnapshot | null;
   location: RoutingMemberLocation;
