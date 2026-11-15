@@ -95,6 +95,8 @@ export interface RoutingSettings {
   requestRetry: number;
   /** 0 tries every available credential. */
   maxRetryCredentials: number;
+  /** `routing.use-or-lose.drain-ending-credentials`; the backend treats an absent value as on. */
+  drainEndingCredentials: boolean;
 }
 
 export interface RoutingBoard {

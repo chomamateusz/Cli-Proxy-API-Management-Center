@@ -46,6 +46,7 @@ export type AuthFileFieldsPatch = {
   using_api?: boolean;
   use_siwc?: boolean;
   note?: string;
+  fleet_ends_at?: string | null;
   excluded_models?: string[];
   'excluded-models'?: string[];
   expired?: string;
@@ -274,6 +275,7 @@ const normalizeAuthFileEntry = (
     typeof entry.statusMessage === 'string' ? entry.statusMessage.trim() : '';
   const statusMessage = readTextField(entry, 'status_message') || declaredStatusMessage;
   const note = readTextField(entry, 'note');
+  const fleetEndsAt = readTextField(entry, 'fleet_ends_at');
   const email = readTextField(entry, 'email');
   // Never normalize account/account_type: API-key credentials expose secrets there.
   const projectId = readTextField(entry, 'project_id');
@@ -306,6 +308,7 @@ const normalizeAuthFileEntry = (
     priority,
     weight,
     ...(note ? { note } : {}),
+    ...(fleetEndsAt ? { fleetEndsAt, fleetEnded: entry.fleet_ended === true } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),
   };

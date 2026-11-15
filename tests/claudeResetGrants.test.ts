@@ -832,6 +832,8 @@ test('a failed quota read keeps the unresolved claim Retry and warning on card a
       resetting: false,
       onRefresh() {},
       onReset() {},
+      canEditEnd: false,
+      async onSaveEnd() {},
     };
     const views = [
       renderToStaticMarkup(createElement(QuotaCard, { ...common, resolvedTheme: 'light' })),

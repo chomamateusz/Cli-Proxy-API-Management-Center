@@ -58,6 +58,7 @@ export interface TimelineLane {
   remaining: number | null;
   limits: TimelineLimit[];
   resetCredits: TimelineResetCredit[];
+  endsAtMs: number | null;
 }
 
 /** One drawn bar: a single window occurrence within the visible span. */
@@ -219,22 +220,24 @@ export function projectLane(
   if (span <= 0) return [];
 
   const toPercent = (ms: number) => ((ms - spanStartMs) / span) * 100;
+  const visibleEndMs = lane.endsAtMs === null ? spanEndMs : Math.min(spanEndMs, lane.endsAtMs);
 
   return windowsIn(lane.anchorMs, periodHours * HOUR_MS, spanStartMs, spanEndMs)
     .map((window): TimelineWindow | null => {
+      const endMs = lane.endsAtMs === null ? window.endMs : Math.min(window.endMs, lane.endsAtMs);
       const left = Math.max(0, toPercent(window.startMs));
-      const right = Math.min(100, toPercent(window.endMs));
+      const right = Math.min(100, toPercent(endMs));
       if (right <= 0 || left >= 100 || right <= left) return null;
 
       const state: TimelineWindow['state'] =
-        window.endMs <= now ? 'past' : window.startMs <= now ? 'live' : 'next';
+        endMs <= now ? 'past' : window.startMs <= now ? 'live' : 'next';
       // `lane.remaining` belongs to the current payload window ending at the
       // anchor. Once that reset passes, projected windows must not reuse it.
       const remaining = state === 'live' && window.endMs === lane.anchorMs ? lane.remaining : null;
 
       return {
         startMs: window.startMs,
-        endMs: window.endMs,
+        endMs,
         leftPercent: left,
         widthPercent: right - left,
         state,
@@ -243,7 +246,7 @@ export function projectLane(
           window.startMs,
           window.endMs,
           spanStartMs,
-          spanEndMs,
+          visibleEndMs,
           remaining
         ),
       };
@@ -266,12 +269,24 @@ export function projectResetCredits(
       (credit) =>
         credit.expiresAtMs > now &&
         credit.expiresAtMs >= spanStartMs &&
-        credit.expiresAtMs < spanEndMs
+        credit.expiresAtMs < spanEndMs &&
+        (lane.endsAtMs === null || credit.expiresAtMs <= lane.endsAtMs)
     )
     .map((credit) => ({
       ...credit,
       leftPercent: ((credit.expiresAtMs - spanStartMs) / span) * 100,
     }));
+}
+
+export function projectLaneEnd(
+  lane: TimelineLane,
+  spanStartMs: number,
+  spanEndMs: number
+): number | null {
+  const span = spanEndMs - spanStartMs;
+  if (lane.endsAtMs === null || span <= 0) return null;
+  if (lane.endsAtMs < spanStartMs || lane.endsAtMs >= spanEndMs) return null;
+  return ((lane.endsAtMs - spanStartMs) / span) * 100;
 }
 
 /**
@@ -384,6 +399,7 @@ export interface TimelineLaneInput {
   displayName: string;
   provider: QuotaProviderType;
   quota: { status?: string } | undefined;
+  endsAtMs?: number | null;
   /**
    * Longest window period worth drawing, in hours — normally the visible span.
    * A window longer than the whole view can't show a boundary, and a much
@@ -407,7 +423,7 @@ const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
  * scheduled", which is the truth.
  */
 export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
-  const { name, displayName, provider, quota, maxPeriodHours } = input;
+  const { name, displayName, provider, quota, maxPeriodHours, endsAtMs = null } = input;
   const empty: TimelineLane = {
     name,
     displayName,
@@ -417,6 +433,7 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
     remaining: null,
     limits: [],
     resetCredits: [],
+    endsAtMs,
   };
 
   if (!quota || quota.status !== 'success') return empty;

@@ -150,11 +150,14 @@ describe('routing board rendering', () => {
           sessionAffinity: false,
           requestRetry: 3,
           maxRetryCredentials: 0,
+          drainEndingCredentials: true,
         },
         onChange: () => {},
       })
     );
     expect(html).toContain('role="radiogroup"');
+    expect(html).toContain('Drain ending credentials first');
+    expect(html).toMatch(/aria-label="Drain ending credentials first"[^>]*checked=""/);
     expect(html).toMatch(/role="radio" aria-checked="true" tabindex="0"[^>]*>.*Weighted/);
     expect(html).toContain('Requests are split across the tier by weight.');
   });

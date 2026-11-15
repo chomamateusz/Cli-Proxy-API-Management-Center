@@ -95,8 +95,22 @@ describe('routing board reading', () => {
       sessionAffinity: true,
       requestRetry: 3,
       maxRetryCredentials: 0,
+      drainEndingCredentials: true,
     });
     expect(readRoutingSettings({ routing: { strategy: 'bogus' } }).strategy).toBe('round-robin');
+  });
+
+  test('drains ending credentials unless the switch is explicitly off', () => {
+    const read = (value: unknown) =>
+      readRoutingSettings({ routing: { 'use-or-lose': { 'drain-ending-credentials': value } } })
+        .drainEndingCredentials;
+    expect(read(undefined)).toBe(true);
+    expect(read(null)).toBe(true);
+    expect(read(true)).toBe(true);
+    expect(read(false)).toBe(false);
+    expect(readRoutingSettings({ routing: { 'use-or-lose': null } }).drainEndingCredentials).toBe(
+      true
+    );
   });
 
   test('expands groups with key overrides, compat providers and credentials', () => {
@@ -276,6 +290,19 @@ describe('writing a plan', () => {
     const patch = buildRoutingConfigPatch(RAW, current, buildRoutingPlan(current, draft));
     expect(patch).toEqual({
       routing: { retry: { 'request-retry': 1, 'max-retry-credentials': 2 } },
+    });
+  });
+
+  test('the drain switch writes only its own use-or-lose key', () => {
+    const current = board();
+    const draft = draftFromBoard(current);
+    draft.settings = { ...draft.settings, drainEndingCredentials: false };
+    const plan = buildRoutingPlan(current, draft);
+    expect(plan.changes).toEqual([
+      { kind: 'setting', field: 'drainEndingCredentials', from: true, to: false },
+    ]);
+    expect(buildRoutingConfigPatch(RAW, current, plan)).toEqual({
+      routing: { 'use-or-lose': { 'drain-ending-credentials': false } },
     });
   });
 });

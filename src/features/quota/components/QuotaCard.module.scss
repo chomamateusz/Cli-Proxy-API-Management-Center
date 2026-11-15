@@ -85,6 +85,28 @@
   @include text-ellipsis;
 }
 
+.endedBadge {
+  flex: none;
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: $radius-full;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.card[data-ended='1'] {
+  border-style: dashed;
+
+  .icon,
+  .iconFallback,
+  .fileName,
+  .body {
+    opacity: 0.55;
+  }
+}
+
 /* ---------- body 容器 ---------- */
 
 .body {

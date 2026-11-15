@@ -1,6 +1,6 @@
 // Log in from the dev server with a custom connection to http://127.0.0.1:<MOCK_PORT> and any key.
 
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   CREDENTIAL_MODELS,
   MOCK_CONFIG_YAML,
@@ -30,6 +30,71 @@ const issuedKeys = issuedKeyFixtures.map((key) => ({
 
 const iso = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
 const unix = (offsetMs: number) => Math.floor((startedAt + offsetMs) / 1000);
+const utcSeconds = (ms: number) =>
+  new Date(Math.floor(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z');
+
+const claudeFileName = (email: string) => `claude-${email}.json`;
+const codexFileName = (accountId: string, email: string) => `codex-${accountId}-${email}-pro.json`;
+const credentialEnds = new Map<string, string>([
+  ...claudeFixtures.flatMap((fixture) =>
+    fixture.endsInMs === undefined
+      ? []
+      : [[claudeFileName(fixture.email), utcSeconds(startedAt + fixture.endsInMs)] as const]
+  ),
+  ...codexFixtures.flatMap((fixture) =>
+    fixture.endsInMs === undefined
+      ? []
+      : [
+          [
+            codexFileName(fixture.accountId, fixture.email),
+            utcSeconds(startedAt + fixture.endsInMs),
+          ] as const,
+        ]
+  ),
+]);
+
+const endFields = (name: string) => {
+  const endsAt = credentialEnds.get(name);
+  if (!endsAt) return {};
+  return { fleet_ends_at: endsAt, fleet_ended: Date.now() >= Date.parse(endsAt) };
+};
+
+const patchCredentialEnd = (body: Record<string, unknown>) => {
+  const name = typeof body.name === 'string' ? body.name : '';
+  if (!name) return json({ error: 'invalid_body', message: 'name is required' }, 400);
+  if (!('fleet_ends_at' in body)) return json({ status: 'ok' });
+  const value = body.fleet_ends_at;
+  if (value === null) {
+    credentialEnds.delete(name);
+    return json({ status: 'ok' });
+  }
+  const ms = typeof value === 'string' ? Date.parse(value) : NaN;
+  if (!Number.isFinite(ms)) {
+    return json({ error: 'invalid_fleet_ends_at', message: 'fleet_ends_at must be RFC3339' }, 400);
+  }
+  credentialEnds.set(name, utcSeconds(ms));
+  return json({ status: 'ok' });
+};
+
+type ConfigTree = Record<string, unknown>;
+const isTree = (value: unknown): value is ConfigTree =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const mergeConfig = (target: ConfigTree, patch: ConfigTree): ConfigTree => {
+  const merged: ConfigTree = { ...target };
+  for (const [key, value] of Object.entries(patch)) {
+    merged[key] = isTree(value) && isTree(merged[key]) ? mergeConfig(merged[key], value) : value;
+  }
+  return merged;
+};
+
+const configAt = (parts: string[]) =>
+  parts.reduce<unknown>((node, key) => (isTree(node) ? node[key] : undefined), parseYaml(configYaml));
+
+const writeConfigAt = (parts: string[], value: unknown) => {
+  const patch = parts.reduceRight<unknown>((child, key) => ({ [key]: child }), value) as ConfigTree;
+  configYaml = stringifyYaml(mergeConfig(parseYaml(configYaml) ?? {}, patch));
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,19 +144,21 @@ const entry = (provider: string, name: string, authIndex: string, email: string)
 
 const credentials = () => [
   ...claudeFixtures.map((fixture) => ({
-    ...entry('claude', `claude-${fixture.email}.json`, fixture.authIndex, fixture.email),
+    ...entry('claude', claudeFileName(fixture.email), fixture.authIndex, fixture.email),
     ...(fixture.note ? { note: fixture.note } : {}),
+    ...endFields(claudeFileName(fixture.email)),
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
   })),
   ...codexFixtures.map((fixture) => ({
     ...entry(
       'codex',
-      `codex-${fixture.accountId}-${fixture.email}-pro.json`,
+      codexFileName(fixture.accountId, fixture.email),
       fixture.authIndex,
       fixture.email
     ),
     ...(fixture.note ? { note: fixture.note } : {}),
+    ...endFields(codexFileName(fixture.accountId, fixture.email)),
     chatgpt_account_id: fixture.accountId,
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
@@ -306,7 +373,28 @@ Bun.serve({
       configYaml = await req.text();
       return json({ status: 'ok' });
     }
-    if (path.startsWith('/config')) return json({ status: 'ok' });
+    if (path === '/config' && (method === 'PATCH' || method === 'PUT')) {
+      const body = (await req.json()) as ConfigTree;
+      configYaml = stringifyYaml(
+        method === 'PATCH' ? mergeConfig(parseYaml(configYaml) ?? {}, body) : body
+      );
+      return json({ status: 'ok', 'config-version': 8 });
+    }
+    if (path.startsWith('/config/')) {
+      const parts = path.slice('/config/'.length).split('/').filter(Boolean);
+      if (method === 'GET') {
+        const value = configAt(parts);
+        return value === undefined ? json({ error: 'not_found' }, 404) : json(value);
+      }
+      if (method === 'PUT' || method === 'PATCH') {
+        writeConfigAt(parts, await req.json());
+        return json({ status: 'ok', 'config-version': 8 });
+      }
+      return json({ status: 'ok' });
+    }
+    if (path === '/credentials/fields' && method === 'PATCH') {
+      return patchCredentialEnd((await req.json()) as Record<string, unknown>);
+    }
     if (path === '/credentials' && method === 'GET') {
       const files = credentials();
       return json({ observed_at: new Date().toISOString(), files, total: files.length });

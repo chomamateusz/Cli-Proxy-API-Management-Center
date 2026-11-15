@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import {
   getQuotaAccountIdentities,
@@ -69,6 +69,7 @@ import { BURN_WINDOW_IDS, burnAccountFromRow } from './burnForecast';
 import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
+import { withCredentialEnd } from './credentialEnd';
 import {
   readPersistedQuotaView,
   readQuotaUiState,
@@ -165,6 +166,27 @@ export function QuotaPage() {
     }
     setFiles(data.files || []);
   }, [connectionStatus, sessionGeneration]);
+
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const saveCredentialEnd = useCallback(
+    async (file: AuthFileItem, fleetEndsAt: string | null) => {
+      await authFilesApi.patchFields(file.name, { fleet_ends_at: fleetEndsAt });
+      if (sessionGeneration !== useQuotaStore.getState().cacheGeneration) return;
+      setFiles((current) =>
+        current.map((item) =>
+          item.name === file.name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
+        )
+      );
+      showNotification(
+        t(fleetEndsAt === null ? 'credential_end.cleared' : 'credential_end.saved', {
+          name: file.name,
+        }),
+        'success'
+      );
+      void reloadFilesQuietly();
+    },
+    [reloadFilesQuietly, sessionGeneration, showNotification, t]
+  );
 
   useHeaderRefresh(loadFiles);
 
@@ -682,6 +704,8 @@ export function QuotaPage() {
                     onReset={() =>
                       resetQuota(entry.file, QUOTA_ADAPTERS[entry.type], laneNameFor(entry))
                     }
+                    canEditEnd={canUseActions}
+                    onSaveEnd={saveCredentialEnd}
                   />
                 ))}
               </QuotaProviderGroup>
@@ -700,6 +724,8 @@ export function QuotaPage() {
                 entranceDelayMs={cardEntranceDelay(index)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                canEditEnd={canUseActions}
+                onSaveEnd={saveCredentialEnd}
               />
             ))}
           </div>

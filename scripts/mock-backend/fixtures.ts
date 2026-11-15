@@ -32,6 +32,7 @@ export interface ClaudeFixture {
   grants: ClaudeGrantFixture[];
   /** Requests per ten-minute bucket, newest last. */
   traffic: number[];
+  endsInMs?: number;
 }
 
 export interface CodexFixture {
@@ -45,6 +46,7 @@ export interface CodexFixture {
   manualResets: number;
   manualResetExpiresInMs: number;
   traffic: number[];
+  endsInMs?: number;
 }
 
 const quiet = () => Array.from({ length: 20 }, () => 0);
@@ -121,6 +123,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     opus: { used: 0, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
     grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: busy(2),
+    endsInMs: -3 * DAY_MS,
   },
 ];
 
@@ -158,6 +161,7 @@ export const codexFixtures: CodexFixture[] = [
     manualResets: 1,
     manualResetExpiresInMs: 30 * DAY_MS,
     traffic: busy(4),
+    endsInMs: 10 * DAY_MS + 5 * HOUR_MS,
   },
 ];
 
@@ -211,6 +215,8 @@ routing:
   strategy: round-robin
   retry:
     request-retry: 3
+  use-or-lose:
+    drain-ending-credentials: true
   cooldown:
     disable-cooling: false
 oauth:

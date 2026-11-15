@@ -18,7 +18,35 @@
   min-width: 0;
 }
 
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.endedBadge {
+  flex: none;
+  padding: 0 7px;
+  border-radius: $radius-full;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.row[data-ended='1'] {
+  .name,
+  .detail,
+  .metric,
+  .bodySpan,
+  .extras {
+    opacity: 0.55;
+  }
+}
+
 .name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

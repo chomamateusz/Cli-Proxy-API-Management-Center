@@ -277,6 +277,7 @@ const SETTING_FIELDS: readonly (keyof RoutingSettings)[] = [
   'sessionAffinity',
   'requestRetry',
   'maxRetryCredentials',
+  'drainEndingCredentials',
 ];
 
 export function buildRoutingPlan(board: RoutingBoard, draft: RoutingDraft): RoutingPlan {

@@ -113,6 +113,8 @@ export function readRoutingSettings(raw: unknown): RoutingSettings {
       0,
       readInteger(readPath(routing, ['retry', 'max-retry-credentials'])) ?? 0
     ),
+    drainEndingCredentials:
+      readPath(routing, ['use-or-lose', 'drain-ending-credentials']) !== false,
   };
 }
 
@@ -303,6 +305,11 @@ export function buildRoutingConfigPatch(
     retry['max-retry-credentials'] = plan.settings.maxRetryCredentials;
   }
   if (Object.keys(retry).length) routing.retry = retry;
+  if (plan.settings.drainEndingCredentials !== undefined) {
+    routing['use-or-lose'] = {
+      'drain-ending-credentials': plan.settings.drainEndingCredentials,
+    };
+  }
   if (Object.keys(routing).length) patch.routing = routing;
 
   const families = new Map<string, Record<string, unknown>[]>();

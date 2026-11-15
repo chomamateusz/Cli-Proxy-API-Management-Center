@@ -306,6 +306,8 @@ export function QuotaTierPreview() {
               entranceDelayMs={index * CARD_STAGGER_MS}
               onRefresh={simulateRefresh}
               onReset={() => undefined}
+              canEditEnd={false}
+              onSaveEnd={async () => undefined}
             />
           ))}
         </div>

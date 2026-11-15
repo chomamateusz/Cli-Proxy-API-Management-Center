@@ -72,6 +72,10 @@ export interface AuthFileItem {
   priority?: number;
   weight?: number;
   note?: string;
+  /** Owner-entered subscription end (RFC3339 UTC); absent means no end is known. */
+  fleetEndsAt?: string;
+  /** Backend verdict at list time that `fleetEndsAt` has passed. */
+  fleetEnded?: boolean;
   success?: unknown;
   failed?: unknown;
   /** Cumulative success/failure counts normalized by the API boundary. */
