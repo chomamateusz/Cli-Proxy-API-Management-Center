@@ -6,6 +6,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
+import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState, ResolvedTheme } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaDisplayName } from '@/utils/quota/identity';
@@ -21,6 +22,13 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
+import {
+  canMarkCancelled,
+  paidUntilMsFor,
+  readCredentialEnd,
+  unusedResetsForCredential,
+} from '../credentialEnd';
+import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
 
@@ -37,6 +45,9 @@ export type QuotaCardProps = {
   entranceDelayMs?: number | null;
   onRefresh: () => void;
   onReset: () => void;
+  canEditEnd: boolean;
+  endActions: CredentialEndActions;
+  nowMs?: number;
 };
 
 export function QuotaCard(props: QuotaCardProps) {
@@ -49,10 +60,17 @@ export function QuotaCard(props: QuotaCardProps) {
     entranceDelayMs,
     onRefresh,
     onReset,
+    canEditEnd,
+    endActions,
+    nowMs: nowProp,
   } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
+  const tick = useNow(nowProp === undefined);
+  const nowMs = nowProp ?? tick;
+  const credentialEnd = readCredentialEnd(file, nowMs);
+  const { ended } = credentialEnd;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
   const displayName = getQuotaDisplayName(file);
@@ -119,6 +137,7 @@ export function QuotaCard(props: QuotaCardProps) {
     <article
       className={`${styles.card} ${mountEntranceDelayMs === null ? '' : styles.cardEnter}`}
       style={entranceStyle}
+      data-ended={ended ? 1 : 0}
     >
       <header className={styles.head}>
         <span
@@ -139,6 +158,7 @@ export function QuotaCard(props: QuotaCardProps) {
         <span className={styles.fileName} title={displayName}>
           {displayName}
         </span>
+        {ended && <span className={styles.endedBadge}>{t('credential_end.ended_badge')}</span>}
       </header>
 
       <div className={styles.body}>
@@ -193,6 +213,24 @@ export function QuotaCard(props: QuotaCardProps) {
           />
         )}
       </div>
+
+      <CredentialEndControl
+        file={file}
+        subject={displayName}
+        variant="card"
+        paidUntilMs={paidUntilMsFor(entry.type, quota, file)}
+        cancellable={canMarkCancelled(entry.type, file)}
+        unusedResets={unusedResetsForCredential(
+          entry.type,
+          credentialEnd,
+          quota,
+          claudeReset.lines,
+          nowMs
+        )}
+        disabled={!canEditEnd}
+        actions={endActions}
+        nowMs={nowMs}
+      />
 
       {status !== 'idle' && (
         <footer className={styles.actionRow}>

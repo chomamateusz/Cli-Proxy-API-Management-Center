@@ -1,6 +1,6 @@
 // Log in from the dev server with a custom connection to http://127.0.0.1:<MOCK_PORT> and any key.
 
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   CREDENTIAL_MODELS,
   MOCK_CONFIG_YAML,
@@ -9,8 +9,10 @@ import {
   issuedKeyFixtures,
   kimiFixture,
   xaiFixture,
+  type EndFixture,
   type WindowFixture,
 } from './fixtures';
+import { createCredentialEndStore, type CredentialEndSeed } from './credentialEnds';
 
 const PORT = Number(process.env.MOCK_PORT ?? 8317);
 const HOST = process.env.MOCK_HOST ?? '127.0.0.1';
@@ -30,6 +32,57 @@ const issuedKeys = issuedKeyFixtures.map((key) => ({
 
 const iso = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
 const unix = (offsetMs: number) => Math.floor((startedAt + offsetMs) / 1000);
+const claudeFileName = (email: string) => `claude-${email}.json`;
+const codexFileName = (accountId: string, email: string) => `codex-${accountId}-${email}-pro.json`;
+const endAtMs = (end: EndFixture | undefined) =>
+  end && 'inMs' in end ? startedAt + end.inMs : null;
+const credentialEnds = createCredentialEndStore(
+  [
+    ...claudeFixtures.map((fixture): CredentialEndSeed => ({
+      name: claudeFileName(fixture.email),
+      provider: 'claude',
+      endsAtMs: endAtMs(fixture.end),
+      source: fixture.end?.source ?? null,
+      billingAnchorMs:
+        fixture.subscribedInMs === undefined ? null : startedAt + fixture.subscribedInMs,
+      planActive: fixture.planActive ?? true,
+      warnings: [],
+    })),
+    ...codexFixtures.map((fixture): CredentialEndSeed => ({
+      name: codexFileName(fixture.accountId, fixture.email),
+      provider: 'codex',
+      endsAtMs: endAtMs(fixture.end),
+      source: fixture.end?.source ?? null,
+      billingAnchorMs: null,
+      planActive: true,
+      warnings: fixture.warnings ?? [],
+    })),
+  ],
+  startedAt
+);
+
+type ConfigTree = Record<string, unknown>;
+const isTree = (value: unknown): value is ConfigTree =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const mergeConfig = (target: ConfigTree, patch: ConfigTree): ConfigTree => {
+  const merged: ConfigTree = { ...target };
+  for (const [key, value] of Object.entries(patch)) {
+    merged[key] = isTree(value) && isTree(merged[key]) ? mergeConfig(merged[key], value) : value;
+  }
+  return merged;
+};
+
+const configAt = (parts: string[]) =>
+  parts.reduce<unknown>(
+    (node, key) => (isTree(node) ? node[key] : undefined),
+    parseYaml(configYaml)
+  );
+
+const writeConfigAt = (parts: string[], value: unknown) => {
+  const patch = parts.reduceRight<unknown>((child, key) => ({ [key]: child }), value) as ConfigTree;
+  configYaml = stringifyYaml(mergeConfig(parseYaml(configYaml) ?? {}, patch));
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,19 +132,21 @@ const entry = (provider: string, name: string, authIndex: string, email: string)
 
 const credentials = () => [
   ...claudeFixtures.map((fixture) => ({
-    ...entry('claude', `claude-${fixture.email}.json`, fixture.authIndex, fixture.email),
+    ...entry('claude', claudeFileName(fixture.email), fixture.authIndex, fixture.email),
     ...(fixture.note ? { note: fixture.note } : {}),
+    ...credentialEnds.fields(claudeFileName(fixture.email), Date.now()),
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
   })),
   ...codexFixtures.map((fixture) => ({
     ...entry(
       'codex',
-      `codex-${fixture.accountId}-${fixture.email}-pro.json`,
+      codexFileName(fixture.accountId, fixture.email),
       fixture.authIndex,
       fixture.email
     ),
     ...(fixture.note ? { note: fixture.note } : {}),
+    ...credentialEnds.fields(codexFileName(fixture.accountId, fixture.email), Date.now()),
     chatgpt_account_id: fixture.accountId,
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
@@ -306,7 +361,29 @@ Bun.serve({
       configYaml = await req.text();
       return json({ status: 'ok' });
     }
-    if (path.startsWith('/config')) return json({ status: 'ok' });
+    if (path === '/config' && (method === 'PATCH' || method === 'PUT')) {
+      const body = (await req.json()) as ConfigTree;
+      configYaml = stringifyYaml(
+        method === 'PATCH' ? mergeConfig(parseYaml(configYaml) ?? {}, body) : body
+      );
+      return json({ status: 'ok', 'config-version': 8 });
+    }
+    if (path.startsWith('/config/')) {
+      const parts = path.slice('/config/'.length).split('/').filter(Boolean);
+      if (method === 'GET') {
+        const value = configAt(parts);
+        return value === undefined ? json({ error: 'not_found' }, 404) : json(value);
+      }
+      if (method === 'PUT' || method === 'PATCH') {
+        writeConfigAt(parts, await req.json());
+        return json({ status: 'ok', 'config-version': 8 });
+      }
+      return json({ status: 'ok' });
+    }
+    if (path === '/credentials/fields' && method === 'PATCH') {
+      const reply = credentialEnds.patch((await req.json()) as Record<string, unknown>, Date.now());
+      return json(reply.body, reply.status);
+    }
     if (path === '/credentials' && method === 'GET') {
       const files = credentials();
       return json({ observed_at: new Date().toISOString(), files, total: files.length });

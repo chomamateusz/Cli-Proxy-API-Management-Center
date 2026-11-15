@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import {
   getQuotaAccountIdentities,
@@ -55,6 +55,7 @@ import {
   filterEntriesByTab,
   filterEntriesBySearch,
   paginate,
+  selectUnseenQuotaEntries,
   sortQuotaEntries,
   type QuotaFileEntry,
 } from './logic';
@@ -69,6 +70,9 @@ import { BURN_WINDOW_IDS, burnAccountFromRow } from './burnForecast';
 import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
+import { withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
+import { createCredentialEndActions } from './credentialEndActions';
+import type { CredentialEndActions } from './components/CredentialEndControl';
 import {
   readPersistedQuotaView,
   readQuotaUiState,
@@ -152,8 +156,8 @@ export function QuotaPage() {
     }
   }, [connectionStatus, sessionGeneration, t]);
 
-  const reloadFilesQuietly = useCallback(async () => {
-    if (connectionStatus !== 'connected') return;
+  const reloadFilesQuietly = useCallback(async (): Promise<boolean> => {
+    if (connectionStatus !== 'connected') return false;
     const requestId = listRequestRef.current;
     const data = await authFilesApi.list().catch(() => null);
     if (
@@ -161,10 +165,35 @@ export function QuotaPage() {
       requestId !== listRequestRef.current ||
       sessionGeneration !== useQuotaStore.getState().cacheGeneration
     ) {
-      return;
+      return false;
     }
     setFiles(data.files || []);
+    return true;
   }, [connectionStatus, sessionGeneration]);
+
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const [endsMovedToNextPeriod] = useState(() => new Map<string, string | undefined>());
+  const credentialEndActions = useMemo<CredentialEndActions>(
+    () =>
+      // eslint-disable-next-line react-hooks/refs -- reload reads listRequestRef only when an end action runs, never while rendering
+      createCredentialEndActions({
+        patchEnd: (name, fleetEndsAt) =>
+          authFilesApi.patchFields(name, { fleet_ends_at: fleetEndsAt }),
+        markCancelled: authFilesApi.markSubscriptionCancelled,
+        moveEndToNextPeriod: authFilesApi.moveEndToNextPeriod,
+        reload: reloadFilesQuietly,
+        notify: (key, name) => showNotification(t(key, { name }), 'success'),
+        sameSession: () => sessionGeneration === useQuotaStore.getState().cacheGeneration,
+        applyLocalEnd: (name, fleetEndsAt) =>
+          setFiles((current) =>
+            current.map((item) =>
+              item.name === name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
+            )
+          ),
+        endsMovedToNextPeriod,
+      }),
+    [endsMovedToNextPeriod, reloadFilesQuietly, sessionGeneration, showNotification, t]
+  );
 
   useHeaderRefresh(loadFiles);
 
@@ -381,9 +410,9 @@ export function QuotaPage() {
 
   useEffect(() => {
     if (!isOverview || !canUseActions || batchLoading || error) return;
-    const unseen = pageItems.filter((entry) => !getQuota(entry) && !entry.file.disabled);
+    const unseen = selectUnseenQuotaEntries(pageItems, (entry) => Boolean(getQuota(entry)), nowMs);
     if (unseen.length > 0) void loadQuota(unseen);
-  }, [batchLoading, canUseActions, error, getQuota, isOverview, loadQuota, pageItems]);
+  }, [batchLoading, canUseActions, error, getQuota, isOverview, loadQuota, nowMs, pageItems]);
 
   const burnRefreshTargets = useMemo(
     () => entries.filter((entry) => BURN_WINDOW_IDS[entry.type] && !entry.file.disabled),
@@ -441,7 +470,12 @@ export function QuotaPage() {
           items,
           models,
           columns,
-          summary: buildProviderSummary(t, type, accounts.map(getQuota), nowMs),
+          summary: buildProviderSummary(
+            t,
+            type,
+            withoutEndedCredentials(accounts, nowMs).map(getQuota),
+            nowMs
+          ),
           busiest:
             busiestEntry && busiestActivity
               ? {
@@ -469,7 +503,7 @@ export function QuotaPage() {
   const burnAccounts = useMemo(
     () =>
       burnType
-        ? filteredEntries
+        ? withoutEndedCredentials(filteredEntries, nowMs)
             .filter((entry) => entry.type === burnType)
             .map((entry) =>
               burnAccountFromRow(
@@ -479,7 +513,7 @@ export function QuotaPage() {
               )
             )
         : [],
-    [burnType, filteredEntries, getQuota, quotaReadings, t]
+    [burnType, filteredEntries, getQuota, nowMs, quotaReadings, t]
   );
 
   const handleToggleShowEmails = useCallback(() => {
@@ -682,6 +716,8 @@ export function QuotaPage() {
                     onReset={() =>
                       resetQuota(entry.file, QUOTA_ADAPTERS[entry.type], laneNameFor(entry))
                     }
+                    canEditEnd={canUseActions}
+                    endActions={credentialEndActions}
                   />
                 ))}
               </QuotaProviderGroup>
@@ -700,6 +736,8 @@ export function QuotaPage() {
                 entranceDelayMs={cardEntranceDelay(index)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                canEditEnd={canUseActions}
+                endActions={credentialEndActions}
               />
             ))}
           </div>

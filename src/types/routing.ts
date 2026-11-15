@@ -6,7 +6,7 @@
  * that order made explicit for every config API key, OpenAI-compatible provider and credential.
  */
 
-import type { AuthFileCooldownSnapshot } from './authFile';
+import type { AuthFileCooldownSnapshot, ReportedCredentialEnd } from './authFile';
 import type { RoutingStrategy } from './visualConfig';
 
 export type { RoutingStrategy };
@@ -85,6 +85,7 @@ export interface RoutingMember {
   modelSource: RoutingModelSource;
   /** Credentials only. */
   unavailable: boolean;
+  end: ReportedCredentialEnd;
   cooldowns: AuthFileCooldownSnapshot | null;
   location: RoutingMemberLocation;
 }
@@ -95,6 +96,8 @@ export interface RoutingSettings {
   requestRetry: number;
   /** 0 tries every available credential. */
   maxRetryCredentials: number;
+  /** `routing.use-or-lose.drain-ending-credentials`; the backend treats an absent value as on. */
+  drainEndingCredentials: boolean;
 }
 
 export interface RoutingBoard {
@@ -144,7 +147,7 @@ export interface RoutingPlan {
 }
 
 export type RouteMemberState =
-  'serving' | 'excluded' | 'cooling' | 'blocked' | 'unknown' | 'ineligible' | 'disabled';
+  'serving' | 'excluded' | 'cooling' | 'blocked' | 'unknown' | 'ineligible' | 'disabled' | 'ended';
 
 export type RouteTierState = 'active' | 'standby' | 'skipped' | 'cooling' | 'unknown';
 

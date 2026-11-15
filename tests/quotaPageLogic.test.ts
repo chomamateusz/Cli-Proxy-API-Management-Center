@@ -9,6 +9,7 @@ import {
   isQuotaRefreshDisabled,
   paginate,
   resolveQuotaProviderType,
+  selectUnseenQuotaEntries,
   sortQuotaEntries,
   type QuotaFileEntry,
 } from '@/features/quota/logic';
@@ -156,6 +157,26 @@ describe('filterEntriesBySearch', () => {
     expect(paginate(filterEntriesBySearch(all, 'missing'), 1, QUOTA_PAGE_SIZE).pageItems).toEqual(
       []
     );
+  });
+});
+
+describe('selectUnseenQuotaEntries', () => {
+  test('loads only enabled credentials without a reading that have not ended', () => {
+    const now = Date.parse('2026-11-15T12:00:00Z');
+    const entries: QuotaFileEntry[] = [
+      file('loaded.json', 'claude'),
+      file('fresh.json', 'claude'),
+      file('off.json', 'claude', { disabled: true }),
+      file('ended.json', 'claude', { fleetEndsAt: '2026-11-20T00:00:00Z', fleetEnded: true }),
+      file('clock-ended.json', 'claude', { fleetEndsAt: '2026-11-15T11:00:00Z' }),
+      file('ending.json', 'claude', { fleetEndsAt: '2026-11-20T00:00:00Z' }),
+    ].map((item) => ({ file: item, type: 'claude' }));
+    const unseen = selectUnseenQuotaEntries(
+      entries,
+      (entry) => entry.file.name === 'loaded.json',
+      now
+    );
+    expect(unseen.map((entry) => entry.file.name)).toEqual(['fresh.json', 'ending.json']);
   });
 });
 

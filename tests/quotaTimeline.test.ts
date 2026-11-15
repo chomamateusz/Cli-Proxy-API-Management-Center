@@ -108,6 +108,8 @@ describe('projectLane', () => {
     remaining: 40,
     limits: [],
     resetCredits: [],
+    endsAtMs: null,
+    endState: 'none',
     ...over,
   });
 

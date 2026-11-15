@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { MINUTE_MS } from '@/utils/time/durations';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { withoutEndedCredentials } from '../credentialEnd';
 import type { QuotaFileEntry } from '../logic';
 import { lastQuotaReadingAtFrom, readQuotaReadingLog } from '../quotaReadings';
 import type { LoadQuotaOptions, QuotaLoadFailure } from './useQuotaBatchLoader';
@@ -20,7 +21,7 @@ export function pickAutoRefreshTargets(
   lastLoadedAt: (cacheKey: string) => number | null,
   backoffUntil: ReadonlyMap<string, number>
 ): QuotaFileEntry[] {
-  return targets.filter((entry) => {
+  return withoutEndedCredentials(targets, nowMs).filter((entry) => {
     const key = getQuotaCacheKey(entry.file);
     if ((backoffUntil.get(key) ?? 0) > nowMs) return false;
     const last = lastLoadedAt(key);
@@ -42,7 +43,7 @@ export function useQuotaAutoRefresh(
     targets: QuotaFileEntry[],
     options?: LoadQuotaOptions
   ) => Promise<QuotaLoadFailure[] | null>,
-  reloadList: () => Promise<void>
+  reloadList: () => Promise<unknown>
 ) {
   const targetsRef = useRef(targets);
   const loadRef = useRef(loadQuota);

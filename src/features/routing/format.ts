@@ -12,6 +12,7 @@ export const SETTING_LABEL_KEYS: Record<keyof RoutingSettings, string> = {
   sessionAffinity: 'routing.affinity_label',
   requestRetry: 'routing.request_retry',
   maxRetryCredentials: 'routing.max_retry_credentials',
+  drainEndingCredentials: 'routing.drain_ending_label',
 };
 
 export function formatSettingValue(

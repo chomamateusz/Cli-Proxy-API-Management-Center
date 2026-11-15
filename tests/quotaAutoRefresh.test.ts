@@ -26,6 +26,24 @@ describe('pickAutoRefreshTargets', () => {
     expect(names(due)).toEqual(['stale.json', 'never.json']);
   });
 
+  test('never polls a credential past its end', () => {
+    const withEnd = (name: string, fleetEndsAt: string, fleetEnded: boolean): QuotaFileEntry => ({
+      file: { name, type: 'claude', fleetEndsAt, fleetEnded },
+      type: 'claude',
+    });
+    const due = pickAutoRefreshTargets(
+      [
+        withEnd('ended.json', new Date(NOW + 60 * MINUTE).toISOString(), true),
+        withEnd('clock-ended.json', new Date(NOW).toISOString(), false),
+        withEnd('ending.json', new Date(NOW + 60 * MINUTE).toISOString(), false),
+      ],
+      NOW,
+      () => null,
+      new Map()
+    );
+    expect(names(due)).toEqual(['ending.json']);
+  });
+
   test('leaves a rate-limited account alone until its backoff ends', () => {
     const backoff = new Map([['never.json', NOW + 5 * MINUTE]]);
     expect(names(pickAutoRefreshTargets(accounts, NOW, () => null, backoff))).toEqual([

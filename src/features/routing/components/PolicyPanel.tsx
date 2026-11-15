@@ -138,6 +138,22 @@ export function PolicyPanel({ settings, disabled = false, onChange }: PolicyPane
         />
       </section>
 
+      <section className={styles.policyRow}>
+        <div className={styles.policyRowText}>
+          <span className={styles.policyRowLabel}>{t('routing.drain_ending_label')}</span>
+          <span id={`${id}-drain-desc`} className={styles.policyHint}>
+            {t('routing.drain_ending_desc')}
+          </span>
+        </div>
+        <ToggleSwitch
+          checked={settings.drainEndingCredentials}
+          disabled={disabled}
+          onChange={(drainEndingCredentials) => update({ drainEndingCredentials })}
+          ariaLabel={t('routing.drain_ending_label')}
+          ariaDescribedBy={`${id}-drain-desc`}
+        />
+      </section>
+
       <section className={styles.policySection}>
         <h3 className={styles.policyLabel}>{t('routing.retry_label')}</h3>
         <label className={styles.numberField}>

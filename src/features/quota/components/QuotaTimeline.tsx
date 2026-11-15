@@ -23,6 +23,7 @@ import {
   buildTimelineLane,
   laneHasWindow,
   projectLane,
+  projectLaneEnd,
   projectResetCredits,
   timelineCells,
   timelineSpan,
@@ -31,6 +32,7 @@ import {
 import type { TimelineLane, TimelineMode } from '../quotaTimelineModel';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
+import { readCredentialEndMs, readCredentialEndState } from '../credentialEnd';
 import styles from './QuotaTimeline.module.scss';
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -103,8 +105,10 @@ export function QuotaTimeline({
             : displayNameFor(entry.file.name),
         provider: entry.type,
         quota: quotaFor(entry),
+        endsAtMs: readCredentialEndMs(entry.file),
+        endState: readCredentialEndState(entry.file, now),
       })),
-    [entries, quotaFor, displayNameFor, laneNameFor]
+    [entries, quotaFor, displayNameFor, laneNameFor, now]
   );
 
   // Keep the timeline hidden until at least one loaded credential exposes a
@@ -340,6 +344,18 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
     () => projectResetCredits(lane, span.startMs, span.endMs, now),
     [lane, span, now]
   );
+  const endPercent = projectLaneEnd(lane, span.startMs, span.endMs);
+  const ended = lane.endState === 'ended';
+  const endedLabel = t('credential_end.ended_badge');
+  const endMarkerLabel =
+    lane.endsAtMs === null
+      ? ''
+      : t(
+          lane.endState === 'overdue'
+            ? 'quota_management.windows_end_marker_overdue'
+            : 'quota_management.windows_end_marker',
+          { date: `${formatDay(lane.endsAtMs)} ${formatTime(lane.endsAtMs)}` }
+        );
 
   const colorSet = TYPE_COLORS[lane.provider] || TYPE_COLORS.unknown;
   const color: ThemeColors =
@@ -356,7 +372,11 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
           : `${Math.round(lane.periodHours / 24)}d`;
 
   return (
-    <div className={styles.lane} style={{ '--provider-accent': color.text } as CSSProperties}>
+    <div
+      className={styles.lane}
+      data-ended={ended ? 1 : 0}
+      style={{ '--provider-accent': color.text } as CSSProperties}
+    >
       <div className={styles.laneHead}>
         <div className={styles.laneTop}>
           <span className={styles.laneDot} />
@@ -364,6 +384,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
             {lane.displayName}
           </span>
           {periodLabel && <span className={styles.lanePeriod}>{periodLabel}</span>}
+          {ended && <span className={styles.laneEndedBadge}>{endedLabel}</span>}
         </div>
         <div className={styles.laneLimits}>
           {lane.limits.map((limit) => (
@@ -433,6 +454,19 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
               </div>
             );
           })
+        )}
+
+        {endPercent !== null && lane.endsAtMs !== null && (
+          <span
+            className={styles.endMarker}
+            data-state={lane.endState}
+            style={{ left: `${endPercent}%` }}
+            role="img"
+            aria-label={endMarkerLabel}
+            title={endMarkerLabel}
+          >
+            <span className={styles.endMarkerLabel}>{formatDay(lane.endsAtMs)}</span>
+          </span>
         )}
 
         {resetCredits.map((credit, index) => {

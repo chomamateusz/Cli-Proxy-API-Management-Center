@@ -5,7 +5,13 @@
 import { apiClient } from './client';
 import { getConfigValue, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
-import type { AuthFilesResponse } from '@/types/authFile';
+import {
+  CREDENTIAL_END_SOURCES,
+  CREDENTIAL_END_STATES,
+  type AuthFileItem,
+  type AuthFilesResponse,
+  type CredentialEndWarning,
+} from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
@@ -46,6 +52,9 @@ export type AuthFileFieldsPatch = {
   using_api?: boolean;
   use_siwc?: boolean;
   note?: string;
+  fleet_ends_at?: string | null;
+  fleet_cancelled?: boolean;
+  fleet_end_action?: 'next_period';
   excluded_models?: string[];
   'excluded-models'?: string[];
   expired?: string;
@@ -151,6 +160,43 @@ const normalizeBatchDeleteResponse = (
 const readTextField = (entry: AuthFileEntry, key: string): string => {
   const value = entry[key];
   return typeof value === 'string' ? value.trim() : '';
+};
+
+const readEnumField = <T extends string>(
+  entry: AuthFileEntry,
+  key: string,
+  allowed: readonly T[]
+): T | undefined => {
+  const value = readTextField(entry, key);
+  return (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
+};
+
+const readEndWarnings = (value: unknown): CredentialEndWarning[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): CredentialEndWarning[] => {
+    if (!isRecord(item) || typeof item.code !== 'string' || !item.code.trim()) return [];
+    const until = typeof item.until === 'string' && item.until.trim() ? item.until.trim() : '';
+    return [{ code: item.code.trim(), ...(until ? { until } : {}) }];
+  });
+};
+
+const readCredentialEndFields = (entry: AuthFileEntry): Partial<AuthFileItem> => {
+  const fleetEndsAt = readTextField(entry, 'fleet_ends_at');
+  const fleetEndState = readEnumField(entry, 'fleet_end_state', CREDENTIAL_END_STATES);
+  const fleetEndsAtSource = readEnumField(entry, 'fleet_ends_at_source', CREDENTIAL_END_SOURCES);
+  const fleetCancelledAt = readTextField(entry, 'fleet_cancelled_at');
+  const fleetEndWarnings = readEndWarnings(entry.fleet_end_warnings);
+  const fleetBillingAnchor = readTextField(entry, 'fleet_billing_anchor');
+  const fleetEndCheckedAt = readTextField(entry, 'fleet_end_checked_at');
+  return {
+    ...(fleetEndsAt ? { fleetEndsAt, fleetEnded: entry.fleet_ended === true } : {}),
+    ...(fleetEndState ? { fleetEndState } : {}),
+    ...(fleetEndsAt && fleetEndsAtSource ? { fleetEndsAtSource } : {}),
+    ...(fleetEndsAt && fleetCancelledAt ? { fleetCancelledAt } : {}),
+    ...(fleetEndWarnings.length > 0 ? { fleetEndWarnings } : {}),
+    ...(fleetBillingAnchor ? { fleetBillingAnchor } : {}),
+    ...(fleetEndCheckedAt ? { fleetEndCheckedAt } : {}),
+  };
 };
 
 const readDateField = (entry: AuthFileEntry): number => {
@@ -306,6 +352,7 @@ const normalizeAuthFileEntry = (
     priority,
     weight,
     ...(note ? { note } : {}),
+    ...readCredentialEndFields(entry),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),
   };
@@ -560,6 +607,21 @@ export const authFilesApi = {
 
   patchFields: (name: string, fields: AuthFileFieldsPatch) =>
     apiClient.patch('/credentials/fields', { name, ...fields }),
+
+  markSubscriptionCancelled: async (name: string): Promise<'scheduled' | 'no_billing_anchor'> => {
+    try {
+      await apiClient.patch('/credentials/fields', { name, fleet_cancelled: true });
+      return 'scheduled';
+    } catch (error: unknown) {
+      if (isRecord(error) && error.status === 400 && error.apiCode === 'no_billing_anchor') {
+        return 'no_billing_anchor';
+      }
+      throw error;
+    }
+  },
+
+  moveEndToNextPeriod: (name: string) =>
+    apiClient.patch('/credentials/fields', { name, fleet_end_action: 'next_period' }),
 
   requestManualRefresh: async (name: string, authIndex?: string): Promise<void> => {
     // The refresh response may include tokens. Never return it to callers.

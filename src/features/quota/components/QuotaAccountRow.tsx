@@ -18,6 +18,13 @@ import {
   type QuotaMetric,
   type QuotaRowModel,
 } from '../quotaOverview';
+import {
+  canMarkCancelled,
+  paidUntilMsFor,
+  readCredentialEnd,
+  unusedResetsForCredential,
+} from '../credentialEnd';
+import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import { PrivateText } from './PrivateText';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaAccountRow.module.scss';
@@ -42,6 +49,8 @@ export interface QuotaAccountRowProps {
   resetting: boolean;
   onRefresh: () => void;
   onReset: () => void;
+  canEditEnd: boolean;
+  endActions: CredentialEndActions;
 }
 
 const formatPercent = (value: number | null) => (value === null ? '--' : `${Math.round(value)}%`);
@@ -128,10 +137,14 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     resetting,
     onRefresh,
     onReset,
+    canEditEnd,
+    endActions,
   } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const status = quota?.status ?? 'idle';
+  const credentialEnd = readCredentialEnd(entry.file, nowMs);
+  const { ended } = credentialEnd;
   const loading = status === 'loading';
 
   const claudeReset = useClaudeResetGrants(
@@ -291,13 +304,33 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
   };
 
   return (
-    <article className={styles.row} data-status={status}>
+    <article className={styles.row} data-status={status} data-ended={ended ? 1 : 0}>
       <div className={styles.identity}>
-        <PrivateText text={label.name} className={styles.name} showEmails={showEmails} />
+        <span className={styles.nameLine}>
+          <PrivateText text={label.name} className={styles.name} showEmails={showEmails} />
+          {ended && <span className={styles.endedBadge}>{t('credential_end.ended_badge')}</span>}
+        </span>
         {label.detail && (
           <PrivateText text={label.detail} className={styles.detail} showEmails={showEmails} />
         )}
         <span className={styles.subline}>{subline.join(' · ')}</span>
+        <CredentialEndControl
+          file={entry.file}
+          subject={nameInMessages}
+          variant="row"
+          paidUntilMs={paidUntilMsFor(entry.type, quota, entry.file)}
+          cancellable={canMarkCancelled(entry.type, entry.file)}
+          unusedResets={unusedResetsForCredential(
+            entry.type,
+            credentialEnd,
+            quota,
+            claudeReset.lines,
+            nowMs
+          )}
+          disabled={!canEditEnd}
+          actions={endActions}
+          nowMs={nowMs}
+        />
       </div>
 
       {renderBody()}

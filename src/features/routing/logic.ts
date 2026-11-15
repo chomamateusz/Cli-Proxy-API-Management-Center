@@ -8,6 +8,7 @@
  */
 
 import { isModelExcluded } from '@/components/excludedModels/excludedModelRules';
+import { credentialEndStateAt } from '@/utils/quota/credentialEndState';
 import type {
   RouteMember,
   RouteMemberState,
@@ -277,6 +278,7 @@ const SETTING_FIELDS: readonly (keyof RoutingSettings)[] = [
   'sessionAffinity',
   'requestRetry',
   'maxRetryCredentials',
+  'drainEndingCredentials',
 ];
 
 export function buildRoutingPlan(board: RoutingBoard, draft: RoutingDraft): RoutingPlan {
@@ -455,6 +457,7 @@ export function resolveRoute(
       let state: RouteMemberState;
       const models = model ? memberModels(member, catalog) : [];
       if (member.disabled) state = 'disabled';
+      else if (credentialEndStateAt(member.end, nowMs) === 'ended') state = 'ended';
       else if (model && models === null) state = 'unknown';
       else if (model && !memberServesModel(member, models ?? [], model, board.forceModelPrefix)) {
         state = 'ineligible';
@@ -473,7 +476,8 @@ export function resolveRoute(
     const total = [...units.values()].reduce((sum, value) => sum + value, 0);
     const has = (state: RouteMemberState) => members.some((member) => member.state === state);
     const candidates = members.filter(
-      (member) => member.state !== 'ineligible' && member.state !== 'disabled'
+      (member) =>
+        member.state !== 'ineligible' && member.state !== 'disabled' && member.state !== 'ended'
     );
     let state: RouteTierState;
     if (!hasActive && total > 0) {
