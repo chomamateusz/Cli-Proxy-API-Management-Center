@@ -43,7 +43,7 @@ export function useQuotaAutoRefresh(
     targets: QuotaFileEntry[],
     options?: LoadQuotaOptions
   ) => Promise<QuotaLoadFailure[] | null>,
-  reloadList: () => Promise<void>
+  reloadList: () => Promise<unknown>
 ) {
   const targetsRef = useRef(targets);
   const loadRef = useRef(loadQuota);

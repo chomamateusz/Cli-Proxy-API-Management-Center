@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { authFilesApi, normalizeAuthFilesResponse } from '../src/services/api/authFiles';
 import { apiClient } from '../src/services/api/client';
 import {
+  canMarkCancelled,
   countResetsOutlivingEnd,
   readCredentialEnd,
   unusedResetsForCredential,
@@ -174,13 +175,35 @@ describe('unused resets at the end', () => {
 
   test('only resets expiring after the end, or never, are lost with the account', () => {
     expect(
-      countResetsOutlivingEnd(endsAtMs, [
-        { count: 2, expiresAtMs: NOW + 5 * DAY },
-        { count: 1, expiresAtMs: NOW + 20 * DAY },
-        { count: 3, expiresAtMs: null },
-      ])
+      countResetsOutlivingEnd(
+        endsAtMs,
+        [
+          { count: 2, expiresAtMs: NOW + 5 * DAY },
+          { count: 1, expiresAtMs: NOW + 20 * DAY },
+          { count: 3, expiresAtMs: null },
+        ],
+        NOW
+      )
     ).toBe(4);
-    expect(countResetsOutlivingEnd(null, [{ count: 1, expiresAtMs: null }])).toBe(0);
+    expect(countResetsOutlivingEnd(null, [{ count: 1, expiresAtMs: null }], NOW)).toBe(0);
+  });
+
+  test('an overdue end skips resets that expired between the end and now', () => {
+    const overdue = { endsAtMs: NOW - 3 * DAY, state: 'overdue' as const };
+    const lines = [
+      { resetsLeft: 1, endsAt: iso(NOW - DAY) },
+      { resetsLeft: 1, endsAt: iso(NOW + DAY) },
+      { resetsLeft: 1, endsAt: null },
+    ];
+    expect(unusedResetsForCredential('claude', overdue, undefined, lines, NOW)).toBe(2);
+    const codexQuota = {
+      status: 'success',
+      rateLimitResetCredits: [
+        { id: 'gone', status: 'available', expiresAt: iso(NOW - DAY) },
+        { id: 'live', status: 'available', expiresAt: iso(NOW + DAY) },
+      ],
+    };
+    expect(unusedResetsForCredential('codex', overdue, codexQuota, [], NOW)).toBe(1);
   });
 
   test('Claude grant lines and Codex credits feed the count for scheduled and overdue ends', () => {
@@ -190,9 +213,9 @@ describe('unused resets at the end', () => {
       { resetsLeft: null, endsAt: null },
     ];
     const scheduled = { endsAtMs, state: 'scheduled' as const };
-    expect(unusedResetsForCredential('claude', scheduled, undefined, lines)).toBe(1);
+    expect(unusedResetsForCredential('claude', scheduled, undefined, lines, NOW)).toBe(1);
     expect(
-      unusedResetsForCredential('claude', { ...scheduled, state: 'ended' }, undefined, lines)
+      unusedResetsForCredential('claude', { ...scheduled, state: 'ended' }, undefined, lines, NOW)
     ).toBe(0);
     const codexQuota = {
       status: 'success',
@@ -203,11 +226,19 @@ describe('unused resets at the end', () => {
       ],
     };
     expect(
-      unusedResetsForCredential('codex', { ...scheduled, state: 'overdue' }, codexQuota, [])
+      unusedResetsForCredential('codex', { ...scheduled, state: 'overdue' }, codexQuota, [], NOW)
     ).toBe(1);
     expect(
-      unusedResetsForCredential('codex', { endsAtMs: null, state: 'none' }, codexQuota, [])
+      unusedResetsForCredential('codex', { endsAtMs: null, state: 'none' }, codexQuota, [], NOW)
     ).toBe(0);
+  });
+});
+
+describe('cancel action availability', () => {
+  test('only a Claude credential from a backend that reports end states can be cancelled', () => {
+    expect(canMarkCancelled('claude', { name: 'c.json', fleetEndState: 'none' })).toBe(true);
+    expect(canMarkCancelled('claude', { name: 'c.json' })).toBe(false);
+    expect(canMarkCancelled('codex', { name: 'x.json', fleetEndState: 'none' })).toBe(false);
   });
 });
 
@@ -289,9 +320,13 @@ describe('end controls on cards and rows', () => {
 
   test('a Claude credential without an end offers Cancelled, Codex does not', async () => {
     await i18n.changeLanguage('en');
-    expect(card({ name: 'claude.json', type: 'claude' }, 'claude')).toContain('>Cancelled<');
-    expect(row({ name: 'claude.json', type: 'claude' }, 'claude')).toContain('>Cancelled<');
-    expect(card({ name: 'codex.json', type: 'codex' }, 'codex')).not.toContain('>Cancelled<');
+    const claude: AuthFileItem = { name: 'claude.json', type: 'claude', fleetEndState: 'none' };
+    expect(card(claude, 'claude')).toContain('>Cancelled<');
+    expect(row(claude, 'claude')).toContain('>Cancelled<');
+    expect(card({ name: 'claude.json', type: 'claude' }, 'claude')).not.toContain('>Cancelled<');
+    expect(
+      card({ name: 'codex.json', type: 'codex', fleetEndState: 'none' }, 'codex')
+    ).not.toContain('>Cancelled<');
     const withEnd = card(
       {
         name: 'claude.json',

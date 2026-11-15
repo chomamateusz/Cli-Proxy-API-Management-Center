@@ -18,7 +18,12 @@ import {
   type QuotaMetric,
   type QuotaRowModel,
 } from '../quotaOverview';
-import { paidUntilMsFor, readCredentialEnd, unusedResetsForCredential } from '../credentialEnd';
+import {
+  canMarkCancelled,
+  paidUntilMsFor,
+  readCredentialEnd,
+  unusedResetsForCredential,
+} from '../credentialEnd';
 import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import { PrivateText } from './PrivateText';
 import bodyStyles from './QuotaBody.module.scss';
@@ -314,12 +319,13 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
           subject={nameInMessages}
           variant="row"
           paidUntilMs={paidUntilMsFor(entry.type, quota, entry.file)}
-          cancellable={entry.type === 'claude'}
+          cancellable={canMarkCancelled(entry.type, entry.file)}
           unusedResets={unusedResetsForCredential(
             entry.type,
             credentialEnd,
             quota,
-            claudeReset.lines
+            claudeReset.lines,
+            nowMs
           )}
           disabled={!canEditEnd}
           actions={endActions}

@@ -22,7 +22,12 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
-import { paidUntilMsFor, readCredentialEnd, unusedResetsForCredential } from '../credentialEnd';
+import {
+  canMarkCancelled,
+  paidUntilMsFor,
+  readCredentialEnd,
+  unusedResetsForCredential,
+} from '../credentialEnd';
 import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
@@ -215,12 +220,13 @@ export function QuotaCard(props: QuotaCardProps) {
         subject={displayName}
         variant="card"
         paidUntilMs={paidUntilMsFor(entry.type, quota, file)}
-        cancellable={entry.type === 'claude'}
+        cancellable={canMarkCancelled(entry.type, file)}
         unusedResets={unusedResetsForCredential(
           entry.type,
           credentialEnd,
           quota,
-          claudeReset.lines
+          claudeReset.lines,
+          nowMs
         )}
         disabled={!canEditEnd}
         actions={endActions}

@@ -71,6 +71,7 @@ import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
 import { withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
+import { createCredentialEndActions } from './credentialEndActions';
 import type { CredentialEndActions } from './components/CredentialEndControl';
 import {
   readPersistedQuotaView,
@@ -155,8 +156,8 @@ export function QuotaPage() {
     }
   }, [connectionStatus, sessionGeneration, t]);
 
-  const reloadFilesQuietly = useCallback(async () => {
-    if (connectionStatus !== 'connected') return;
+  const reloadFilesQuietly = useCallback(async (): Promise<boolean> => {
+    if (connectionStatus !== 'connected') return false;
     const requestId = listRequestRef.current;
     const data = await authFilesApi.list().catch(() => null);
     if (
@@ -164,45 +165,35 @@ export function QuotaPage() {
       requestId !== listRequestRef.current ||
       sessionGeneration !== useQuotaStore.getState().cacheGeneration
     ) {
-      return;
+      return false;
     }
     setFiles(data.files || []);
+    return true;
   }, [connectionStatus, sessionGeneration]);
 
   const showNotification = useNotificationStore((state) => state.showNotification);
-  const credentialEndActions = useMemo<CredentialEndActions>(() => {
-    const sameSession = () => sessionGeneration === useQuotaStore.getState().cacheGeneration;
-    const confirm = (key: string, name: string) => {
-      showNotification(t(key, { name }), 'success');
-      void reloadFilesQuietly();
-    };
-    return {
-      save: async (file, fleetEndsAt) => {
-        await authFilesApi.patchFields(file.name, { fleet_ends_at: fleetEndsAt });
-        if (!sameSession()) return;
-        setFiles((current) =>
-          current.map((item) =>
-            item.name === file.name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
-          )
-        );
-        confirm(
-          fleetEndsAt === null ? 'credential_end.cleared' : 'credential_end.saved',
-          file.name
-        );
-      },
-      cancel: async (file) => {
-        const outcome = await authFilesApi.markSubscriptionCancelled(file.name);
-        if (outcome === 'scheduled' && sameSession()) {
-          confirm('credential_end.cancel_saved', file.name);
-        }
-        return outcome;
-      },
-      nextPeriod: async (file) => {
-        await authFilesApi.moveEndToNextPeriod(file.name);
-        if (sameSession()) confirm('credential_end.next_period_saved', file.name);
-      },
-    };
-  }, [reloadFilesQuietly, sessionGeneration, showNotification, t]);
+  const [endsMovedToNextPeriod] = useState(() => new Map<string, string | undefined>());
+  const credentialEndActions = useMemo<CredentialEndActions>(
+    () =>
+      // eslint-disable-next-line react-hooks/refs -- reload reads listRequestRef only when an end action runs, never while rendering
+      createCredentialEndActions({
+        patchEnd: (name, fleetEndsAt) =>
+          authFilesApi.patchFields(name, { fleet_ends_at: fleetEndsAt }),
+        markCancelled: authFilesApi.markSubscriptionCancelled,
+        moveEndToNextPeriod: authFilesApi.moveEndToNextPeriod,
+        reload: reloadFilesQuietly,
+        notify: (key, name) => showNotification(t(key, { name }), 'success'),
+        sameSession: () => sessionGeneration === useQuotaStore.getState().cacheGeneration,
+        applyLocalEnd: (name, fleetEndsAt) =>
+          setFiles((current) =>
+            current.map((item) =>
+              item.name === name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
+            )
+          ),
+        endsMovedToNextPeriod,
+      }),
+    [endsMovedToNextPeriod, reloadFilesQuietly, sessionGeneration, showNotification, t]
+  );
 
   useHeaderRefresh(loadFiles);
 

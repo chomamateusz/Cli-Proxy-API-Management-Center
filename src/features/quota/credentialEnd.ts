@@ -63,6 +63,10 @@ export const CREDENTIAL_END_FIELDS = [
   'fleetCancelledAt',
 ] as const;
 
+export function canMarkCancelled(type: QuotaProviderType, file: AuthFileItem): boolean {
+  return type === 'claude' && file.fleetEndState !== undefined;
+}
+
 export function withoutEndedCredentials<T extends { file: AuthFileItem }>(
   entries: readonly T[],
   nowMs: number
@@ -102,11 +106,13 @@ export interface ResetExpiry {
 /** An expiry the provider leaves open never lapses on its own, so it outlives any end. */
 export function countResetsOutlivingEnd(
   endsAtMs: number | null,
-  resets: readonly ResetExpiry[]
+  resets: readonly ResetExpiry[],
+  nowMs: number
 ): number {
   if (endsAtMs === null) return 0;
+  const lostAfterMs = Math.max(endsAtMs, nowMs);
   return resets
-    .filter((reset) => reset.expiresAtMs === null || reset.expiresAtMs > endsAtMs)
+    .filter((reset) => reset.expiresAtMs === null || reset.expiresAtMs > lostAfterMs)
     .reduce((sum, reset) => sum + Math.max(0, reset.count), 0);
 }
 
@@ -133,10 +139,11 @@ export function claudeResetExpiries(
 
 export function unusedResetsAtEnd(
   end: Pick<CredentialEnd, 'endsAtMs' | 'state'>,
-  resets: readonly ResetExpiry[]
+  resets: readonly ResetExpiry[],
+  nowMs: number
 ): number {
   if (end.state !== 'scheduled' && end.state !== 'overdue') return 0;
-  return countResetsOutlivingEnd(end.endsAtMs, resets);
+  return countResetsOutlivingEnd(end.endsAtMs, resets, nowMs);
 }
 
 export function paidUntilMsFor(
@@ -212,9 +219,10 @@ export function unusedResetsForCredential(
   type: QuotaProviderType,
   end: Pick<CredentialEnd, 'endsAtMs' | 'state'>,
   quota: unknown,
-  claudeLines: readonly { resetsLeft: number | null; endsAt: string | null }[]
+  claudeLines: readonly { resetsLeft: number | null; endsAt: string | null }[],
+  nowMs: number
 ): number {
-  if (type === 'claude') return unusedResetsAtEnd(end, claudeResetExpiries(claudeLines));
-  if (type === 'codex') return unusedResetsAtEnd(end, codexResetExpiries(quota));
+  if (type === 'claude') return unusedResetsAtEnd(end, claudeResetExpiries(claudeLines), nowMs);
+  if (type === 'codex') return unusedResetsAtEnd(end, codexResetExpiries(quota), nowMs);
   return 0;
 }
