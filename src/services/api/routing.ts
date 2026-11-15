@@ -22,6 +22,7 @@ import {
   type RoutingStrategy,
 } from '@/types/routing';
 import { maskApiKey } from '@/utils/format';
+import { parseIsoToMs } from '@/utils/quota';
 import { isRecord } from '@/utils/helpers';
 
 const MODEL_REQUEST_CONCURRENCY = 4;
@@ -158,6 +159,8 @@ function keyMembers(raw: unknown, family: RoutingKeyFamily): RoutingMember[] {
             ? { type: 'list', models }
             : { type: 'channel', channel: KEY_FAMILY_CHANNELS[family] },
         unavailable: false,
+        endsAtMs: null,
+        ended: false,
         cooldowns: null,
         location: { kind: 'apiKey', family, groupIndex, keyIndex, apiKey },
       });
@@ -193,6 +196,8 @@ function compatMembers(raw: unknown): RoutingMember[] {
       excludedModels: [],
       modelSource: models.length > 0 ? { type: 'list', models } : { type: 'none' },
       unavailable: false,
+      endsAtMs: null,
+      ended: false,
       cooldowns: null,
       location: { kind: 'compat', groupIndex, name },
     });
@@ -228,6 +233,8 @@ function credentialMember(file: AuthFileItem): RoutingMember | null {
     excludedModels: [],
     modelSource: { type: 'credential', name },
     unavailable: file.unavailable === true,
+    endsAtMs: parseIsoToMs(file.fleetEndsAt),
+    ended: file.fleetEnded === true,
     cooldowns: file.cooldownSnapshot ?? null,
     location: { kind: 'credential', name },
   };

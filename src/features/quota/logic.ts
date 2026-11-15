@@ -14,6 +14,7 @@ import { PLUGIN_CONFIG } from './providers/plugin/data';
 import { XAI_CONFIG } from './providers/xai/data';
 import type { QuotaProviderType } from './providers/types';
 import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
+import { readCredentialEnd } from './credentialEnd';
 
 const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolean> = {
   antigravity: ANTIGRAVITY_CONFIG.filterFn,
@@ -29,6 +30,17 @@ const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolea
 export interface QuotaFileEntry {
   file: AuthFileItem;
   type: QuotaProviderType;
+}
+
+export function selectUnseenQuotaEntries(
+  entries: readonly QuotaFileEntry[],
+  hasQuota: (entry: QuotaFileEntry) => boolean,
+  nowMs: number
+): QuotaFileEntry[] {
+  return entries.filter(
+    (entry) =>
+      !hasQuota(entry) && !entry.file.disabled && !readCredentialEnd(entry.file, nowMs).ended
+  );
 }
 
 /** A refresh-all intent belongs to the session that requested a successful list read. */

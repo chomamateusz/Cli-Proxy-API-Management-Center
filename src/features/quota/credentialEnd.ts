@@ -1,5 +1,10 @@
 import type { AuthFileItem } from '@/types';
-import { formatRelativeInstant, parseIsoToMs, resolveResetMs } from '@/utils/quota';
+import {
+  formatRelativeInstant,
+  parseIsoToMs,
+  resolveCodexSubscriptionActiveUntil,
+  resolveResetMs,
+} from '@/utils/quota';
 import { isRecord } from '@/utils/helpers';
 import type { QuotaProviderType } from './providers/types';
 
@@ -18,6 +23,13 @@ export function readCredentialEnd(file: AuthFileItem, nowMs: number): Credential
   return { endsAtMs, ended: file.fleetEnded === true || endsAtMs <= nowMs };
 }
 
+export function withoutEndedCredentials<T extends { file: AuthFileItem }>(
+  entries: readonly T[],
+  nowMs: number
+): T[] {
+  return entries.filter((entry) => !readCredentialEnd(entry.file, nowMs).ended);
+}
+
 export function withCredentialEnd(
   file: AuthFileItem,
   fleetEndsAt: string | null,
@@ -33,9 +45,17 @@ export function withCredentialEnd(
   return { ...next, fleetEndsAt, fleetEnded: endsAtMs <= nowMs };
 }
 
-export function paidUntilMsFor(type: QuotaProviderType, quota: unknown): number | null {
-  if (type !== 'codex' || !isRecord(quota) || quota.status !== 'success') return null;
-  return resolveResetMs([quota.subscriptionActiveUntil]);
+export function paidUntilMsFor(
+  type: QuotaProviderType,
+  quota: unknown,
+  file: AuthFileItem
+): number | null {
+  if (type !== 'codex') return null;
+  const loaded =
+    isRecord(quota) && quota.status === 'success'
+      ? resolveResetMs([quota.subscriptionActiveUntil])
+      : null;
+  return loaded ?? resolveResetMs([resolveCodexSubscriptionActiveUntil(file)]);
 }
 
 export function toUtcSeconds(ms: number): string {

@@ -415,6 +415,45 @@ describe('route preview', () => {
     expect(loading.tiers[0].members[0].state).toBe('unknown');
   });
 
+  describe('ended credentials', () => {
+    const NOW = Date.parse('2026-11-15T12:00:00Z');
+    const pair = (ending: Partial<AuthFileItem>) => {
+      const current = buildRoutingBoard({}, [
+        { name: 'ending.json', type: 'codex', priority: 5, ...ending },
+        { name: 'other.json', type: 'codex', priority: 5 },
+      ]);
+      return resolveRoute(current, draftFromBoard(current), catalog, null, NOW).tiers[0];
+    };
+    const memberOf = (tier: ReturnType<typeof pair>, name: string) =>
+      tier.members.find((member) => member.key === `cred:${name}`);
+
+    test('an ended credential stops serving and the tier mate takes the whole share', () => {
+      const tier = pair({ fleetEndsAt: '2026-12-01T00:00:00Z', fleetEnded: true });
+      expect(memberOf(tier, 'ending.json')).toMatchObject({ state: 'ended', share: null });
+      expect(memberOf(tier, 'other.json')).toMatchObject({ state: 'serving', share: 100 });
+    });
+
+    test('the clock ends a credential the list still called live', () => {
+      const tier = pair({ fleetEndsAt: '2026-11-15T11:59:00Z', fleetEnded: false });
+      expect(memberOf(tier, 'ending.json')?.state).toBe('ended');
+    });
+
+    test('a credential whose end is still ahead keeps serving', () => {
+      const tier = pair({ fleetEndsAt: '2026-11-20T00:00:00Z', fleetEnded: false });
+      expect(memberOf(tier, 'ending.json')).toMatchObject({ state: 'serving', share: 50 });
+    });
+
+    test('a tier holding only ended credentials is skipped', () => {
+      const current = buildRoutingBoard({}, [
+        { name: 'gone.json', type: 'codex', priority: 9, fleetEndsAt: '2026-11-01T00:00:00Z' },
+        { name: 'live.json', type: 'codex', priority: 1 },
+      ]);
+      const preview = resolveRoute(current, draftFromBoard(current), catalog, null, NOW);
+      expect(preview.tiers[0].state).toBe('skipped');
+      expect(preview.tiers[1].state).toBe('active');
+    });
+  });
+
   test('fill-first has no fixed split', () => {
     const current = board();
     const draft = draftFromBoard(current);

@@ -138,7 +138,37 @@ describe('routing board rendering', () => {
     // Credentials report real runtime state and never carry the note.
     expect(cardMarkup(html, 'cred:main.json')).not.toContain('无冷却信息');
     const card = readFileSync('src/features/routing/components/MemberCard.tsx', 'utf8');
-    expect(card).toContain("const muted = state === 'disabled' || state === 'ineligible';");
+    expect(card).toContain(
+      "const muted = state === 'disabled' || state === 'ended' || state === 'ineligible';"
+    );
+  });
+
+  test('an ended credential is marked Ended and serves nothing', async () => {
+    await i18n.changeLanguage('en');
+    const board = buildRoutingBoard(RAW, [
+      ...FILES,
+      { name: 'gone.json', type: 'codex', fleetEndsAt: '2026-01-01T00:00:00Z', fleetEnded: true },
+    ]);
+    const draft = draftFromBoard(board);
+    const html = renderToStaticMarkup(
+      createElement(TierLadder, {
+        members: new Map(board.members.map((member) => [member.key, member])),
+        draft,
+        preview: resolveRoute(board, draft, { channels: {}, credentials: {} }, null, 0),
+        priorities: {},
+        model: null,
+        nowMs: 0,
+        theme: 'light',
+        entryControl: null,
+        onMove: () => {},
+        onStep: () => {},
+        onEditWeights: () => {},
+      })
+    );
+    const ended = cardMarkup(html, 'cred:gone.json');
+    expect(ended).toContain('data-state="ended"');
+    expect(ended).toContain('>Ended<');
+    expect(ended).not.toMatch(/\d+(\.\d+)?%/);
   });
 
   test('the strategy picker is a keyboard radio group', async () => {

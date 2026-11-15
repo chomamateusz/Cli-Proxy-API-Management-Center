@@ -456,7 +456,9 @@ export function resolveRoute(
       let state: RouteMemberState;
       const models = model ? memberModels(member, catalog) : [];
       if (member.disabled) state = 'disabled';
-      else if (model && models === null) state = 'unknown';
+      else if (member.ended || (member.endsAtMs !== null && member.endsAtMs <= nowMs)) {
+        state = 'ended';
+      } else if (model && models === null) state = 'unknown';
       else if (model && !memberServesModel(member, models ?? [], model, board.forceModelPrefix)) {
         state = 'ineligible';
       } else if (activeCooldownSeconds(member, model, nowMs) > 0) state = 'cooling';
@@ -474,7 +476,8 @@ export function resolveRoute(
     const total = [...units.values()].reduce((sum, value) => sum + value, 0);
     const has = (state: RouteMemberState) => members.some((member) => member.state === state);
     const candidates = members.filter(
-      (member) => member.state !== 'ineligible' && member.state !== 'disabled'
+      (member) =>
+        member.state !== 'ineligible' && member.state !== 'disabled' && member.state !== 'ended'
     );
     let state: RouteTierState;
     if (!hasActive && total > 0) {

@@ -94,12 +94,27 @@ describe('credential end reading', () => {
     expect(Object.keys(cleared)).toEqual(['name']);
   });
 
-  test('only a loaded Codex quota offers its paid-until date', () => {
+  test('a loaded Codex quota offers its paid-until date', () => {
+    const file: AuthFileItem = { name: 'codex.json', type: 'codex' };
     const quota = { status: 'success', subscriptionActiveUntil: '2026-08-20T10:00:00Z' };
-    expect(paidUntilMsFor('codex', quota)).toBe(Date.parse('2026-08-20T10:00:00Z'));
-    expect(paidUntilMsFor('codex', { ...quota, subscriptionActiveUntil: null })).toBeNull();
-    expect(paidUntilMsFor('codex', { ...quota, status: 'loading' })).toBeNull();
-    expect(paidUntilMsFor('claude', quota)).toBeNull();
+    expect(paidUntilMsFor('codex', quota, file)).toBe(Date.parse('2026-08-20T10:00:00Z'));
+    expect(paidUntilMsFor('codex', { ...quota, subscriptionActiveUntil: null }, file)).toBeNull();
+    expect(paidUntilMsFor('codex', { ...quota, status: 'loading' }, file)).toBeNull();
+    expect(paidUntilMsFor('claude', quota, file)).toBeNull();
+  });
+
+  test('the credential list carries the paid-until date before any quota load', () => {
+    const file: AuthFileItem = {
+      name: 'codex.json',
+      type: 'codex',
+      id_token: { chatgpt_subscription_active_until: '2026-09-01T00:00:00Z' },
+    };
+    const fileMs = Date.parse('2026-09-01T00:00:00Z');
+    expect(paidUntilMsFor('codex', undefined, file)).toBe(fileMs);
+    expect(paidUntilMsFor('codex', { status: 'error', error: 'boom' }, file)).toBe(fileMs);
+    const loaded = { status: 'success', subscriptionActiveUntil: '2026-08-20T10:00:00Z' };
+    expect(paidUntilMsFor('codex', loaded, file)).toBe(Date.parse('2026-08-20T10:00:00Z'));
+    expect(paidUntilMsFor('claude', undefined, { ...file, type: 'claude' })).toBeNull();
   });
 });
 

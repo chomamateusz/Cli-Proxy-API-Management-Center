@@ -137,6 +137,7 @@ export function MemberCard({
 
   let chip: string | null = null;
   if (state === 'disabled') chip = t('routing.state_disabled');
+  else if (state === 'ended') chip = t('credential_end.ended_badge');
   else if (state === 'cooling') {
     chip = t('routing.state_cooling', { time: formatRoutingDuration(t, cooldownSeconds) });
   } else if (state === 'blocked') chip = t('routing.state_blocked');
@@ -149,7 +150,7 @@ export function MemberCard({
     singleWeight !== null &&
     singleWeight !== undefined &&
     state !== 'excluded';
-  const muted = state === 'disabled' || state === 'ineligible';
+  const muted = state === 'disabled' || state === 'ended' || state === 'ineligible';
 
   const className = [
     styles.card,

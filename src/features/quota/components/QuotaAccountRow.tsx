@@ -312,7 +312,7 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
           file={entry.file}
           subject={nameInMessages}
           variant="row"
-          paidUntilMs={paidUntilMsFor(entry.type, quota)}
+          paidUntilMs={paidUntilMsFor(entry.type, quota, entry.file)}
           disabled={!canEditEnd}
           onSave={onSaveEnd}
           nowMs={nowMs}

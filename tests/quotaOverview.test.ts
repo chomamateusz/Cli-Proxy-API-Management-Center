@@ -10,6 +10,7 @@ import {
   remainingFromUsed,
   toneForRemaining,
 } from '@/features/quota/quotaOverview';
+import { withoutEndedCredentials } from '@/features/quota/credentialEnd';
 
 const now = Date.parse('2026-10-05T12:00:00Z');
 const HOUR = 60 * 60 * 1000;
@@ -210,6 +211,33 @@ describe('provider summary', () => {
       ).pool;
     expect(pool([0, null])).toMatchObject({ remaining: 100, capacity: 100 });
     expect(pool([null, null])).toMatchObject({ remaining: null, capacity: 0 });
+  });
+});
+
+describe('provider summary without ended credentials', () => {
+  test('an ended credential with a cached full reading adds nothing to the pool', () => {
+    const accounts = [
+      { file: { name: 'live.json' }, quota: codexQuota(60, 30) },
+      {
+        file: { name: 'ended.json', fleetEndsAt: '2026-10-01T00:00:00Z', fleetEnded: true },
+        quota: codexQuota(0, 2),
+      },
+      {
+        file: { name: 'clock-ended.json', fleetEndsAt: '2026-10-05T11:00:00Z' },
+        quota: codexQuota(0, 1),
+      },
+    ];
+    const live = buildProviderSummary(t, 'codex', [accounts[0].quota], now);
+    const summary = buildProviderSummary(
+      t,
+      'codex',
+      withoutEndedCredentials(accounts, now).map((account) => account.quota),
+      now
+    );
+    expect(summary.pool).toEqual(live.pool);
+    expect(summary.pool?.remaining).toBe(40);
+    expect(summary.nextResetAtMs).toBe(now + 30 * HOUR);
+    expect(summary.credentialCount).toBe(1);
   });
 });
 

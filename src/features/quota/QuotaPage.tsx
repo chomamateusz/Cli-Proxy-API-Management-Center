@@ -55,6 +55,7 @@ import {
   filterEntriesByTab,
   filterEntriesBySearch,
   paginate,
+  selectUnseenQuotaEntries,
   sortQuotaEntries,
   type QuotaFileEntry,
 } from './logic';
@@ -69,7 +70,7 @@ import { BURN_WINDOW_IDS, burnAccountFromRow } from './burnForecast';
 import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
-import { withCredentialEnd } from './credentialEnd';
+import { withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
 import {
   readPersistedQuotaView,
   readQuotaUiState,
@@ -403,9 +404,9 @@ export function QuotaPage() {
 
   useEffect(() => {
     if (!isOverview || !canUseActions || batchLoading || error) return;
-    const unseen = pageItems.filter((entry) => !getQuota(entry) && !entry.file.disabled);
+    const unseen = selectUnseenQuotaEntries(pageItems, (entry) => Boolean(getQuota(entry)), nowMs);
     if (unseen.length > 0) void loadQuota(unseen);
-  }, [batchLoading, canUseActions, error, getQuota, isOverview, loadQuota, pageItems]);
+  }, [batchLoading, canUseActions, error, getQuota, isOverview, loadQuota, nowMs, pageItems]);
 
   const burnRefreshTargets = useMemo(
     () => entries.filter((entry) => BURN_WINDOW_IDS[entry.type] && !entry.file.disabled),
@@ -463,7 +464,12 @@ export function QuotaPage() {
           items,
           models,
           columns,
-          summary: buildProviderSummary(t, type, accounts.map(getQuota), nowMs),
+          summary: buildProviderSummary(
+            t,
+            type,
+            withoutEndedCredentials(accounts, nowMs).map(getQuota),
+            nowMs
+          ),
           busiest:
             busiestEntry && busiestActivity
               ? {
@@ -491,7 +497,7 @@ export function QuotaPage() {
   const burnAccounts = useMemo(
     () =>
       burnType
-        ? filteredEntries
+        ? withoutEndedCredentials(filteredEntries, nowMs)
             .filter((entry) => entry.type === burnType)
             .map((entry) =>
               burnAccountFromRow(
@@ -501,7 +507,7 @@ export function QuotaPage() {
               )
             )
         : [],
-    [burnType, filteredEntries, getQuota, quotaReadings, t]
+    [burnType, filteredEntries, getQuota, nowMs, quotaReadings, t]
   );
 
   const handleToggleShowEmails = useCallback(() => {

@@ -85,6 +85,10 @@ export interface RoutingMember {
   modelSource: RoutingModelSource;
   /** Credentials only. */
   unavailable: boolean;
+  /** Credentials only. */
+  endsAtMs: number | null;
+  /** The backend's ended verdict at list time; the clock can end a member later. */
+  ended: boolean;
   cooldowns: AuthFileCooldownSnapshot | null;
   location: RoutingMemberLocation;
 }
@@ -146,7 +150,7 @@ export interface RoutingPlan {
 }
 
 export type RouteMemberState =
-  'serving' | 'excluded' | 'cooling' | 'blocked' | 'unknown' | 'ineligible' | 'disabled';
+  'serving' | 'excluded' | 'cooling' | 'blocked' | 'unknown' | 'ineligible' | 'disabled' | 'ended';
 
 export type RouteTierState = 'active' | 'standby' | 'skipped' | 'cooling' | 'unknown';
 

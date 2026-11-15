@@ -213,7 +213,7 @@ export function QuotaCard(props: QuotaCardProps) {
         file={file}
         subject={displayName}
         variant="card"
-        paidUntilMs={paidUntilMsFor(entry.type, quota)}
+        paidUntilMs={paidUntilMsFor(entry.type, quota, file)}
         disabled={!canEditEnd}
         onSave={onSaveEnd}
         nowMs={nowMs}
