@@ -18,8 +18,8 @@ import {
   type QuotaMetric,
   type QuotaRowModel,
 } from '../quotaOverview';
-import { paidUntilMsFor, readCredentialEnd } from '../credentialEnd';
-import { CredentialEndControl, type SaveCredentialEnd } from './CredentialEndControl';
+import { paidUntilMsFor, readCredentialEnd, unusedResetsForCredential } from '../credentialEnd';
+import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import { PrivateText } from './PrivateText';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaAccountRow.module.scss';
@@ -45,7 +45,7 @@ export interface QuotaAccountRowProps {
   onRefresh: () => void;
   onReset: () => void;
   canEditEnd: boolean;
-  onSaveEnd: SaveCredentialEnd;
+  endActions: CredentialEndActions;
 }
 
 const formatPercent = (value: number | null) => (value === null ? '--' : `${Math.round(value)}%`);
@@ -133,12 +133,13 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     onRefresh,
     onReset,
     canEditEnd,
-    onSaveEnd,
+    endActions,
   } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const status = quota?.status ?? 'idle';
-  const { ended } = readCredentialEnd(entry.file, nowMs);
+  const credentialEnd = readCredentialEnd(entry.file, nowMs);
+  const { ended } = credentialEnd;
   const loading = status === 'loading';
 
   const claudeReset = useClaudeResetGrants(
@@ -313,8 +314,15 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
           subject={nameInMessages}
           variant="row"
           paidUntilMs={paidUntilMsFor(entry.type, quota, entry.file)}
+          cancellable={entry.type === 'claude'}
+          unusedResets={unusedResetsForCredential(
+            entry.type,
+            credentialEnd,
+            quota,
+            claudeReset.lines
+          )}
           disabled={!canEditEnd}
-          onSave={onSaveEnd}
+          actions={endActions}
           nowMs={nowMs}
         />
       </div>

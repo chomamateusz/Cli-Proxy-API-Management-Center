@@ -29,7 +29,7 @@ for (const { zone, date, hours, startHour = 0 } of cases) {
           const lane = {
             name: 'fixture.json', displayName: 'Fixture', provider: 'codex',
             anchorMs: new Date(${date[0]}, ${date[1]}, ${date[2] + 1}).getTime(),
-            periodHours: 168, remaining: 100, limits: [], resetCredits: [], endsAtMs: null,
+            periodHours: 168, remaining: 100, limits: [], resetCredits: [], endsAtMs: null, endState: 'none',
           };
           const output = ['weekly', 'session'].map((mode) => {
             const span = timelineSpan(mode, 0, now);

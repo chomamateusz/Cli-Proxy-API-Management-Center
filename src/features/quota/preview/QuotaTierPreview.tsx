@@ -22,6 +22,7 @@ import type {
   XaiQuotaState,
 } from '@/types';
 import { HOUR_MS, DAY_MS } from '@/utils/time/durations';
+import type { CredentialEndActions } from '../components/CredentialEndControl';
 import { QuotaCard } from '../components/QuotaCard';
 import type { QuotaFileEntry } from '../logic';
 import type { QuotaCardState } from '../providers';
@@ -41,6 +42,11 @@ const THEMES: { value: Theme; label: string }[] = [
 ];
 
 const CARD_STAGGER_MS = 50;
+const PREVIEW_END_ACTIONS: CredentialEndActions = {
+  save: async () => undefined,
+  cancel: async () => 'scheduled',
+  nextPeriod: async () => undefined,
+};
 const SIMULATED_REFRESH_MS = 1200;
 
 const file = (name: string, type: string, extra: Partial<AuthFileItem> = {}): AuthFileItem => ({
@@ -307,7 +313,7 @@ export function QuotaTierPreview() {
               onRefresh={simulateRefresh}
               onReset={() => undefined}
               canEditEnd={false}
-              onSaveEnd={async () => undefined}
+              endActions={PREVIEW_END_ACTIONS}
             />
           ))}
         </div>

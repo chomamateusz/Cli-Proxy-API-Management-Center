@@ -8,6 +8,7 @@
  */
 
 import { isModelExcluded } from '@/components/excludedModels/excludedModelRules';
+import { credentialEndStateAt } from '@/utils/quota/credentialEndState';
 import type {
   RouteMember,
   RouteMemberState,
@@ -456,9 +457,8 @@ export function resolveRoute(
       let state: RouteMemberState;
       const models = model ? memberModels(member, catalog) : [];
       if (member.disabled) state = 'disabled';
-      else if (member.ended || (member.endsAtMs !== null && member.endsAtMs <= nowMs)) {
-        state = 'ended';
-      } else if (model && models === null) state = 'unknown';
+      else if (credentialEndStateAt(member.end, nowMs) === 'ended') state = 'ended';
+      else if (model && models === null) state = 'unknown';
       else if (model && !memberServesModel(member, models ?? [], model, board.forceModelPrefix)) {
         state = 'ineligible';
       } else if (activeCooldownSeconds(member, model, nowMs) > 0) state = 'cooling';

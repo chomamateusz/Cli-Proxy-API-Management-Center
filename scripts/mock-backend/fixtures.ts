@@ -21,6 +21,17 @@ const FULL_RESET = 'One full limit reset (November 2026)';
 const FABLE_RESET =
   'New model launch: one Fable reset for Max, Team Premium and Enterprise Premium';
 
+export type EndSourceFixture = 'manual' | 'claude-anniversary' | 'codex-api' | 'plan-ended';
+
+export type EndFixture =
+  | { source: 'claude-anniversary' }
+  | { source: Exclude<EndSourceFixture, 'claude-anniversary'>; inMs: number };
+
+export interface WarningFixture {
+  code: 'provider_renews' | 'grace_period';
+  untilInMs?: number;
+}
+
 export interface ClaudeFixture {
   email: string;
   note?: string;
@@ -32,7 +43,10 @@ export interface ClaudeFixture {
   grants: ClaudeGrantFixture[];
   /** Requests per ten-minute bucket, newest last. */
   traffic: number[];
-  endsInMs?: number;
+  end?: EndFixture;
+  /** Offset of the Stripe subscription_created_at; absent means no profile sample yet. */
+  subscribedInMs?: number;
+  planActive?: boolean;
 }
 
 export interface CodexFixture {
@@ -46,7 +60,8 @@ export interface CodexFixture {
   manualResets: number;
   manualResetExpiresInMs: number;
   traffic: number[];
-  endsInMs?: number;
+  end?: EndFixture;
+  warnings?: WarningFixture[];
 }
 
 const quiet = () => Array.from({ length: 20 }, () => 0);
@@ -67,6 +82,7 @@ export const claudeFixtures: ClaudeFixture[] = [
       { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS },
     ],
     traffic: busy(9),
+    subscribedInMs: -38 * DAY_MS - 5 * HOUR_MS,
   },
   {
     email: 'ops.lead@harbor.test',
@@ -91,6 +107,8 @@ export const claudeFixtures: ClaudeFixture[] = [
       { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS, requiresLimit: true },
     ],
     traffic: busy(3),
+    subscribedInMs: -78 * DAY_MS + 12 * HOUR_MS,
+    end: { source: 'claude-anniversary' },
   },
   {
     email: 'night-shift@harbor.test',
@@ -102,6 +120,7 @@ export const claudeFixtures: ClaudeFixture[] = [
     opus: { used: 91, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
     grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: busy(14),
+    subscribedInMs: -200 * DAY_MS,
   },
   {
     email: 'alex@lumen.test',
@@ -113,6 +132,8 @@ export const claudeFixtures: ClaudeFixture[] = [
     opus: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
     grants: [{ label: FABLE_RESET, left: 2, endsInMs: 117 * DAY_MS }],
     traffic: quiet(),
+    subscribedInMs: -61 * DAY_MS,
+    end: { inMs: -1 * DAY_MS, source: 'manual' },
   },
   {
     email: 'sam-o@grove.test',
@@ -123,7 +144,9 @@ export const claudeFixtures: ClaudeFixture[] = [
     opus: { used: 0, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
     grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
     traffic: busy(2),
-    endsInMs: -3 * DAY_MS,
+    subscribedInMs: -95 * DAY_MS,
+    end: { inMs: -3 * DAY_MS, source: 'plan-ended' },
+    planActive: false,
   },
 ];
 
@@ -139,6 +162,7 @@ export const codexFixtures: CodexFixture[] = [
     manualResets: 0,
     manualResetExpiresInMs: 0,
     traffic: busy(6),
+    warnings: [{ code: 'grace_period', untilInMs: 3 * DAY_MS }],
   },
   {
     accountId: '0b7c21aa',
@@ -150,6 +174,8 @@ export const codexFixtures: CodexFixture[] = [
     manualResets: 2,
     manualResetExpiresInMs: 12 * DAY_MS,
     traffic: quiet(),
+    end: { inMs: 5 * DAY_MS, source: 'manual' },
+    warnings: [{ code: 'provider_renews' }],
   },
   {
     accountId: '9f4e0c13',
@@ -161,7 +187,7 @@ export const codexFixtures: CodexFixture[] = [
     manualResets: 1,
     manualResetExpiresInMs: 30 * DAY_MS,
     traffic: busy(4),
-    endsInMs: 10 * DAY_MS + 5 * HOUR_MS,
+    end: { inMs: 10 * DAY_MS + 5 * HOUR_MS, source: 'codex-api' },
   },
 ];
 

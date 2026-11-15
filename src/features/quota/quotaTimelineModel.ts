@@ -11,6 +11,7 @@
  */
 
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
+import type { CredentialEndState } from '@/types/authFile';
 import type { QuotaProviderType } from './providers/types';
 
 export { DAY_MS, HOUR_MS };
@@ -59,6 +60,7 @@ export interface TimelineLane {
   limits: TimelineLimit[];
   resetCredits: TimelineResetCredit[];
   endsAtMs: number | null;
+  endState: CredentialEndState;
 }
 
 /** One drawn bar: a single window occurrence within the visible span. */
@@ -220,11 +222,12 @@ export function projectLane(
   if (span <= 0) return [];
 
   const toPercent = (ms: number) => ((ms - spanStartMs) / span) * 100;
-  const visibleEndMs = lane.endsAtMs === null ? spanEndMs : Math.min(spanEndMs, lane.endsAtMs);
+  const cutMs = laneCutMs(lane);
+  const visibleEndMs = cutMs === null ? spanEndMs : Math.min(spanEndMs, cutMs);
 
   return windowsIn(lane.anchorMs, periodHours * HOUR_MS, spanStartMs, spanEndMs)
     .map((window): TimelineWindow | null => {
-      const endMs = lane.endsAtMs === null ? window.endMs : Math.min(window.endMs, lane.endsAtMs);
+      const endMs = cutMs === null ? window.endMs : Math.min(window.endMs, cutMs);
       const left = Math.max(0, toPercent(window.startMs));
       const right = Math.min(100, toPercent(endMs));
       if (right <= 0 || left >= 100 || right <= left) return null;
@@ -263,6 +266,7 @@ export function projectResetCredits(
 ): TimelineResetCreditMark[] {
   const span = spanEndMs - spanStartMs;
   if (span <= 0) return [];
+  const cutMs = laneCutMs(lane);
 
   return lane.resetCredits
     .filter(
@@ -270,12 +274,17 @@ export function projectResetCredits(
         credit.expiresAtMs > now &&
         credit.expiresAtMs >= spanStartMs &&
         credit.expiresAtMs < spanEndMs &&
-        (lane.endsAtMs === null || credit.expiresAtMs <= lane.endsAtMs)
+        (cutMs === null || credit.expiresAtMs <= cutMs)
     )
     .map((credit) => ({
       ...credit,
       leftPercent: ((credit.expiresAtMs - spanStartMs) / span) * 100,
     }));
+}
+
+/** An overdue account still serves, so its lane keeps its windows past the stated end. */
+export function laneCutMs(lane: TimelineLane): number | null {
+  return lane.endState === 'overdue' ? null : lane.endsAtMs;
 }
 
 export function projectLaneEnd(
@@ -400,6 +409,7 @@ export interface TimelineLaneInput {
   provider: QuotaProviderType;
   quota: { status?: string } | undefined;
   endsAtMs?: number | null;
+  endState?: CredentialEndState;
   /**
    * Longest window period worth drawing, in hours — normally the visible span.
    * A window longer than the whole view can't show a boundary, and a much
@@ -423,7 +433,15 @@ const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
  * scheduled", which is the truth.
  */
 export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
-  const { name, displayName, provider, quota, maxPeriodHours, endsAtMs = null } = input;
+  const {
+    name,
+    displayName,
+    provider,
+    quota,
+    maxPeriodHours,
+    endsAtMs = null,
+    endState = endsAtMs === null ? 'none' : 'scheduled',
+  } = input;
   const empty: TimelineLane = {
     name,
     displayName,
@@ -434,6 +452,7 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
     limits: [],
     resetCredits: [],
     endsAtMs,
+    endState,
   };
 
   if (!quota || quota.status !== 'success') return empty;

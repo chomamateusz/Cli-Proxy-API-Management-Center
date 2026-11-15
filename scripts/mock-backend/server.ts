@@ -9,8 +9,10 @@ import {
   issuedKeyFixtures,
   kimiFixture,
   xaiFixture,
+  type EndFixture,
   type WindowFixture,
 } from './fixtures';
+import { createCredentialEndStore, type CredentialEndSeed } from './credentialEnds';
 
 const PORT = Number(process.env.MOCK_PORT ?? 8317);
 const HOST = process.env.MOCK_HOST ?? '127.0.0.1';
@@ -30,51 +32,34 @@ const issuedKeys = issuedKeyFixtures.map((key) => ({
 
 const iso = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
 const unix = (offsetMs: number) => Math.floor((startedAt + offsetMs) / 1000);
-const utcSeconds = (ms: number) =>
-  new Date(Math.floor(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z');
-
 const claudeFileName = (email: string) => `claude-${email}.json`;
 const codexFileName = (accountId: string, email: string) => `codex-${accountId}-${email}-pro.json`;
-const credentialEnds = new Map<string, string>([
-  ...claudeFixtures.flatMap((fixture) =>
-    fixture.endsInMs === undefined
-      ? []
-      : [[claudeFileName(fixture.email), utcSeconds(startedAt + fixture.endsInMs)] as const]
-  ),
-  ...codexFixtures.flatMap((fixture) =>
-    fixture.endsInMs === undefined
-      ? []
-      : [
-          [
-            codexFileName(fixture.accountId, fixture.email),
-            utcSeconds(startedAt + fixture.endsInMs),
-          ] as const,
-        ]
-  ),
-]);
-
-const endFields = (name: string) => {
-  const endsAt = credentialEnds.get(name);
-  if (!endsAt) return {};
-  return { fleet_ends_at: endsAt, fleet_ended: Date.now() >= Date.parse(endsAt) };
-};
-
-const patchCredentialEnd = (body: Record<string, unknown>) => {
-  const name = typeof body.name === 'string' ? body.name : '';
-  if (!name) return json({ error: 'invalid_body', message: 'name is required' }, 400);
-  if (!('fleet_ends_at' in body)) return json({ status: 'ok' });
-  const value = body.fleet_ends_at;
-  if (value === null) {
-    credentialEnds.delete(name);
-    return json({ status: 'ok' });
-  }
-  const ms = typeof value === 'string' ? Date.parse(value) : NaN;
-  if (!Number.isFinite(ms)) {
-    return json({ error: 'invalid_fleet_ends_at', message: 'fleet_ends_at must be RFC3339' }, 400);
-  }
-  credentialEnds.set(name, utcSeconds(ms));
-  return json({ status: 'ok' });
-};
+const endAtMs = (end: EndFixture | undefined) =>
+  end && 'inMs' in end ? startedAt + end.inMs : null;
+const credentialEnds = createCredentialEndStore(
+  [
+    ...claudeFixtures.map((fixture): CredentialEndSeed => ({
+      name: claudeFileName(fixture.email),
+      provider: 'claude',
+      endsAtMs: endAtMs(fixture.end),
+      source: fixture.end?.source ?? null,
+      billingAnchorMs:
+        fixture.subscribedInMs === undefined ? null : startedAt + fixture.subscribedInMs,
+      planActive: fixture.planActive ?? true,
+      warnings: [],
+    })),
+    ...codexFixtures.map((fixture): CredentialEndSeed => ({
+      name: codexFileName(fixture.accountId, fixture.email),
+      provider: 'codex',
+      endsAtMs: endAtMs(fixture.end),
+      source: fixture.end?.source ?? null,
+      billingAnchorMs: null,
+      planActive: true,
+      warnings: fixture.warnings ?? [],
+    })),
+  ],
+  startedAt
+);
 
 type ConfigTree = Record<string, unknown>;
 const isTree = (value: unknown): value is ConfigTree =>
@@ -89,7 +74,10 @@ const mergeConfig = (target: ConfigTree, patch: ConfigTree): ConfigTree => {
 };
 
 const configAt = (parts: string[]) =>
-  parts.reduce<unknown>((node, key) => (isTree(node) ? node[key] : undefined), parseYaml(configYaml));
+  parts.reduce<unknown>(
+    (node, key) => (isTree(node) ? node[key] : undefined),
+    parseYaml(configYaml)
+  );
 
 const writeConfigAt = (parts: string[], value: unknown) => {
   const patch = parts.reduceRight<unknown>((child, key) => ({ [key]: child }), value) as ConfigTree;
@@ -146,7 +134,7 @@ const credentials = () => [
   ...claudeFixtures.map((fixture) => ({
     ...entry('claude', claudeFileName(fixture.email), fixture.authIndex, fixture.email),
     ...(fixture.note ? { note: fixture.note } : {}),
-    ...endFields(claudeFileName(fixture.email)),
+    ...credentialEnds.fields(claudeFileName(fixture.email), Date.now()),
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
   })),
@@ -158,7 +146,7 @@ const credentials = () => [
       fixture.email
     ),
     ...(fixture.note ? { note: fixture.note } : {}),
-    ...endFields(codexFileName(fixture.accountId, fixture.email)),
+    ...credentialEnds.fields(codexFileName(fixture.accountId, fixture.email), Date.now()),
     chatgpt_account_id: fixture.accountId,
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
@@ -393,7 +381,8 @@ Bun.serve({
       return json({ status: 'ok' });
     }
     if (path === '/credentials/fields' && method === 'PATCH') {
-      return patchCredentialEnd((await req.json()) as Record<string, unknown>);
+      const reply = credentialEnds.patch((await req.json()) as Record<string, unknown>, Date.now());
+      return json(reply.body, reply.status);
     }
     if (path === '/credentials' && method === 'GET') {
       const files = credentials();

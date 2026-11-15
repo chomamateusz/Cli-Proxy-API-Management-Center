@@ -38,6 +38,11 @@ const { QuotaTimeline } = await import('@/features/quota/components/QuotaTimelin
 const { CodexQuotaBody } = await import('@/features/quota/providers/codex/CodexQuotaBody');
 
 const at = (y: number, m: number, d: number, h = 0) => new Date(y, m, d, h).getTime();
+const noEndActions = {
+  save: async () => undefined,
+  cancel: async () => 'scheduled' as const,
+  nextPeriod: async () => undefined,
+};
 const NOW = at(2026, 6, 29, 12);
 
 describe('credential end reading', () => {
@@ -62,7 +67,7 @@ describe('credential end reading', () => {
   test('an end is ended once the clock reaches it or the backend says so', () => {
     const file = (fields: Partial<AuthFileItem>): AuthFileItem => ({ name: 'x.json', ...fields });
     const end = new Date(NOW + 1000).toISOString();
-    expect(readCredentialEnd(file({}), NOW)).toEqual({ endsAtMs: null, ended: false });
+    expect(readCredentialEnd(file({}), NOW)).toMatchObject({ endsAtMs: null, ended: false });
     expect(readCredentialEnd(file({ fleetEndsAt: end }), NOW).ended).toBe(false);
     expect(readCredentialEnd(file({ fleetEndsAt: end }), NOW + 1000).ended).toBe(true);
     expect(readCredentialEnd(file({ fleetEndsAt: end, fleetEnded: true }), NOW).ended).toBe(true);
@@ -149,6 +154,7 @@ describe('timeline after a credential end', () => {
       { id: 'after', grantedAtMs: null, expiresAtMs: at(2026, 7, 5, 12) },
     ],
     endsAtMs,
+    endState: endsAtMs === null ? 'none' : 'scheduled',
   });
 
   test('no window starts after the end and a straddling window is cut at it', () => {
@@ -208,7 +214,7 @@ describe('credential end rendering', () => {
     onRefresh() {},
     onReset() {},
     canEditEnd: true,
-    async onSaveEnd() {},
+    endActions: noEndActions,
     nowMs: NOW,
   });
 
@@ -319,6 +325,7 @@ describe('credential end locales', () => {
     const required = [
       ...flatten(english.credential_end, 'credential_end'),
       'quota_management.windows_end_marker',
+      'quota_management.windows_end_marker_overdue',
       'routing.drain_ending_label',
       'routing.drain_ending_desc',
       'codex_quota.expires_label',

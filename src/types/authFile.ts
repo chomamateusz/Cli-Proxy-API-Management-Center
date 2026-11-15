@@ -39,6 +39,29 @@ export interface AuthFileCooldownSnapshot {
   records: AuthFileCooldown[] | null;
 }
 
+export const CREDENTIAL_END_STATES = ['none', 'scheduled', 'overdue', 'ended'] as const;
+export type CredentialEndState = (typeof CREDENTIAL_END_STATES)[number];
+
+export const CREDENTIAL_END_SOURCES = [
+  'manual',
+  'claude-anniversary',
+  'codex-api',
+  'plan-ended',
+] as const;
+export type CredentialEndSource = (typeof CREDENTIAL_END_SOURCES)[number];
+
+export interface ReportedCredentialEnd {
+  endsAtMs: number | null;
+  reportedState?: CredentialEndState;
+  reportedEnded?: boolean;
+  source?: CredentialEndSource;
+}
+
+export interface CredentialEndWarning {
+  code: string;
+  until?: string;
+}
+
 export interface AuthFileItem {
   name: string;
   siwcBindSupported?: boolean;
@@ -72,10 +95,18 @@ export interface AuthFileItem {
   priority?: number;
   weight?: number;
   note?: string;
-  /** Owner-entered subscription end (RFC3339 UTC); absent means no end is known. */
+  /** Subscription end (RFC3339 UTC); absent means no end is known. */
   fleetEndsAt?: string;
-  /** Backend verdict at list time that `fleetEndsAt` has passed. */
+  /** Backend verdict at list time that the credential has ended and left routing. */
   fleetEnded?: boolean;
+  fleetEndState?: CredentialEndState;
+  fleetEndsAtSource?: CredentialEndSource;
+  fleetCancelledAt?: string;
+  fleetEndWarnings?: CredentialEndWarning[];
+  /** Claude subscription_created_at from the latest provider profile sample. */
+  fleetBillingAnchor?: string;
+  /** Last successful provider subscription sample. */
+  fleetEndCheckedAt?: string;
   success?: unknown;
   failed?: unknown;
   /** Cumulative success/failure counts normalized by the API boundary. */

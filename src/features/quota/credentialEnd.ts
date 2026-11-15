@@ -1,5 +1,11 @@
-import type { AuthFileItem } from '@/types';
+import type {
+  AuthFileItem,
+  CredentialEndSource,
+  CredentialEndState,
+  CredentialEndWarning,
+} from '@/types';
 import {
+  credentialEndStateAt,
   formatRelativeInstant,
   parseIsoToMs,
   resolveCodexSubscriptionActiveUntil,
@@ -10,18 +16,52 @@ import type { QuotaProviderType } from './providers/types';
 
 export interface CredentialEnd {
   endsAtMs: number | null;
+  state: CredentialEndState;
   ended: boolean;
+  source: CredentialEndSource | null;
+  warnings: CredentialEndWarning[];
 }
 
 export function readCredentialEndMs(file: AuthFileItem): number | null {
   return parseIsoToMs(file.fleetEndsAt);
 }
 
+export function readCredentialEndState(file: AuthFileItem, nowMs: number): CredentialEndState {
+  return credentialEndStateAt(
+    {
+      endsAtMs: readCredentialEndMs(file),
+      reportedState: file.fleetEndState,
+      reportedEnded: file.fleetEnded,
+      source: file.fleetEndsAtSource,
+    },
+    nowMs
+  );
+}
+
 export function readCredentialEnd(file: AuthFileItem, nowMs: number): CredentialEnd {
   const endsAtMs = readCredentialEndMs(file);
-  if (endsAtMs === null) return { endsAtMs: null, ended: false };
-  return { endsAtMs, ended: file.fleetEnded === true || endsAtMs <= nowMs };
+  const state = readCredentialEndState(file, nowMs);
+  return {
+    endsAtMs,
+    state,
+    ended: state === 'ended',
+    source: endsAtMs === null ? null : (file.fleetEndsAtSource ?? null),
+    warnings: file.fleetEndWarnings ?? [],
+  };
 }
+
+export const CREDENTIAL_END_FIELDS = [
+  'fleet_ends_at',
+  'fleet_ended',
+  'fleet_end_state',
+  'fleet_ends_at_source',
+  'fleet_cancelled_at',
+  'fleetEndsAt',
+  'fleetEnded',
+  'fleetEndState',
+  'fleetEndsAtSource',
+  'fleetCancelledAt',
+] as const;
 
 export function withoutEndedCredentials<T extends { file: AuthFileItem }>(
   entries: readonly T[],
@@ -36,13 +76,67 @@ export function withCredentialEnd(
   nowMs: number
 ): AuthFileItem {
   const next: AuthFileItem = { ...file };
-  delete next.fleet_ends_at;
-  delete next.fleet_ended;
-  delete next.fleetEndsAt;
-  delete next.fleetEnded;
+  for (const field of CREDENTIAL_END_FIELDS) delete next[field];
   const endsAtMs = parseIsoToMs(fleetEndsAt);
-  if (fleetEndsAt === null || endsAtMs === null) return next;
-  return { ...next, fleetEndsAt, fleetEnded: endsAtMs <= nowMs };
+  if (fleetEndsAt === null || endsAtMs === null) {
+    const warnings = (file.fleetEndWarnings ?? []).filter(
+      (warning) => warning.code !== 'provider_renews'
+    );
+    delete next.fleetEndWarnings;
+    return warnings.length > 0 ? { ...next, fleetEndWarnings: warnings } : next;
+  }
+  return {
+    ...next,
+    fleetEndsAt,
+    fleetEnded: false,
+    fleetEndState: endsAtMs > nowMs ? 'scheduled' : 'overdue',
+    fleetEndsAtSource: 'manual',
+  };
+}
+
+export interface ResetExpiry {
+  count: number;
+  expiresAtMs: number | null;
+}
+
+/** An expiry the provider leaves open never lapses on its own, so it outlives any end. */
+export function countResetsOutlivingEnd(
+  endsAtMs: number | null,
+  resets: readonly ResetExpiry[]
+): number {
+  if (endsAtMs === null) return 0;
+  return resets
+    .filter((reset) => reset.expiresAtMs === null || reset.expiresAtMs > endsAtMs)
+    .reduce((sum, reset) => sum + Math.max(0, reset.count), 0);
+}
+
+export function codexResetExpiries(quota: unknown): ResetExpiry[] {
+  if (!isRecord(quota) || quota.status !== 'success') return [];
+  const credits = quota.rateLimitResetCredits;
+  if (!Array.isArray(credits)) return [];
+  return credits.flatMap((credit): ResetExpiry[] => {
+    if (!isRecord(credit) || credit.status !== 'available') return [];
+    const expiresAtMs = parseIsoToMs(credit.expiresAt);
+    return expiresAtMs === null ? [] : [{ count: 1, expiresAtMs }];
+  });
+}
+
+export function claudeResetExpiries(
+  lines: readonly { resetsLeft: number | null; endsAt: string | null }[]
+): ResetExpiry[] {
+  return lines.flatMap((line) =>
+    line.resetsLeft === null || line.resetsLeft <= 0
+      ? []
+      : [{ count: line.resetsLeft, expiresAtMs: parseIsoToMs(line.endsAt) }]
+  );
+}
+
+export function unusedResetsAtEnd(
+  end: Pick<CredentialEnd, 'endsAtMs' | 'state'>,
+  resets: readonly ResetExpiry[]
+): number {
+  if (end.state !== 'scheduled' && end.state !== 'overdue') return 0;
+  return countResetsOutlivingEnd(end.endsAtMs, resets);
 }
 
 export function paidUntilMsFor(
@@ -112,4 +206,15 @@ export function buildCredentialEndDisplay(
     relative: formatRelativeInstant(endsAtMs, nowMs, locale),
     ended,
   };
+}
+
+export function unusedResetsForCredential(
+  type: QuotaProviderType,
+  end: Pick<CredentialEnd, 'endsAtMs' | 'state'>,
+  quota: unknown,
+  claudeLines: readonly { resetsLeft: number | null; endsAt: string | null }[]
+): number {
+  if (type === 'claude') return unusedResetsAtEnd(end, claudeResetExpiries(claudeLines));
+  if (type === 'codex') return unusedResetsAtEnd(end, codexResetExpiries(quota));
+  return 0;
 }

@@ -71,6 +71,7 @@ import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
 import { withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
+import type { CredentialEndActions } from './components/CredentialEndControl';
 import {
   readPersistedQuotaView,
   readQuotaUiState,
@@ -169,25 +170,39 @@ export function QuotaPage() {
   }, [connectionStatus, sessionGeneration]);
 
   const showNotification = useNotificationStore((state) => state.showNotification);
-  const saveCredentialEnd = useCallback(
-    async (file: AuthFileItem, fleetEndsAt: string | null) => {
-      await authFilesApi.patchFields(file.name, { fleet_ends_at: fleetEndsAt });
-      if (sessionGeneration !== useQuotaStore.getState().cacheGeneration) return;
-      setFiles((current) =>
-        current.map((item) =>
-          item.name === file.name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
-        )
-      );
-      showNotification(
-        t(fleetEndsAt === null ? 'credential_end.cleared' : 'credential_end.saved', {
-          name: file.name,
-        }),
-        'success'
-      );
+  const credentialEndActions = useMemo<CredentialEndActions>(() => {
+    const sameSession = () => sessionGeneration === useQuotaStore.getState().cacheGeneration;
+    const confirm = (key: string, name: string) => {
+      showNotification(t(key, { name }), 'success');
       void reloadFilesQuietly();
-    },
-    [reloadFilesQuietly, sessionGeneration, showNotification, t]
-  );
+    };
+    return {
+      save: async (file, fleetEndsAt) => {
+        await authFilesApi.patchFields(file.name, { fleet_ends_at: fleetEndsAt });
+        if (!sameSession()) return;
+        setFiles((current) =>
+          current.map((item) =>
+            item.name === file.name ? withCredentialEnd(item, fleetEndsAt, Date.now()) : item
+          )
+        );
+        confirm(
+          fleetEndsAt === null ? 'credential_end.cleared' : 'credential_end.saved',
+          file.name
+        );
+      },
+      cancel: async (file) => {
+        const outcome = await authFilesApi.markSubscriptionCancelled(file.name);
+        if (outcome === 'scheduled' && sameSession()) {
+          confirm('credential_end.cancel_saved', file.name);
+        }
+        return outcome;
+      },
+      nextPeriod: async (file) => {
+        await authFilesApi.moveEndToNextPeriod(file.name);
+        if (sameSession()) confirm('credential_end.next_period_saved', file.name);
+      },
+    };
+  }, [reloadFilesQuietly, sessionGeneration, showNotification, t]);
 
   useHeaderRefresh(loadFiles);
 
@@ -711,7 +726,7 @@ export function QuotaPage() {
                       resetQuota(entry.file, QUOTA_ADAPTERS[entry.type], laneNameFor(entry))
                     }
                     canEditEnd={canUseActions}
-                    onSaveEnd={saveCredentialEnd}
+                    endActions={credentialEndActions}
                   />
                 ))}
               </QuotaProviderGroup>
@@ -731,7 +746,7 @@ export function QuotaPage() {
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 canEditEnd={canUseActions}
-                onSaveEnd={saveCredentialEnd}
+                endActions={credentialEndActions}
               />
             ))}
           </div>

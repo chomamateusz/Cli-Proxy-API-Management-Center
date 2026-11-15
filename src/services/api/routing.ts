@@ -21,11 +21,13 @@ import {
   type RoutingSettings,
   type RoutingStrategy,
 } from '@/types/routing';
+import type { ReportedCredentialEnd } from '@/types/authFile';
 import { maskApiKey } from '@/utils/format';
 import { parseIsoToMs } from '@/utils/quota';
 import { isRecord } from '@/utils/helpers';
 
 const MODEL_REQUEST_CONCURRENCY = 4;
+const NO_CREDENTIAL_END: ReportedCredentialEnd = { endsAtMs: null };
 
 /** CPA disables a config API key by excluding every model. */
 const DISABLE_ALL_MODELS_RULE = '*';
@@ -159,8 +161,7 @@ function keyMembers(raw: unknown, family: RoutingKeyFamily): RoutingMember[] {
             ? { type: 'list', models }
             : { type: 'channel', channel: KEY_FAMILY_CHANNELS[family] },
         unavailable: false,
-        endsAtMs: null,
-        ended: false,
+        end: NO_CREDENTIAL_END,
         cooldowns: null,
         location: { kind: 'apiKey', family, groupIndex, keyIndex, apiKey },
       });
@@ -196,8 +197,7 @@ function compatMembers(raw: unknown): RoutingMember[] {
       excludedModels: [],
       modelSource: models.length > 0 ? { type: 'list', models } : { type: 'none' },
       unavailable: false,
-      endsAtMs: null,
-      ended: false,
+      end: NO_CREDENTIAL_END,
       cooldowns: null,
       location: { kind: 'compat', groupIndex, name },
     });
@@ -233,8 +233,12 @@ function credentialMember(file: AuthFileItem): RoutingMember | null {
     excludedModels: [],
     modelSource: { type: 'credential', name },
     unavailable: file.unavailable === true,
-    endsAtMs: parseIsoToMs(file.fleetEndsAt),
-    ended: file.fleetEnded === true,
+    end: {
+      endsAtMs: parseIsoToMs(file.fleetEndsAt),
+      reportedState: file.fleetEndState,
+      reportedEnded: file.fleetEnded,
+      source: file.fleetEndsAtSource,
+    },
     cooldowns: file.cooldownSnapshot ?? null,
     location: { kind: 'credential', name },
   };

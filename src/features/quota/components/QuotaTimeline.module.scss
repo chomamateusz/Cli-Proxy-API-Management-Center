@@ -351,6 +351,14 @@ $lane-width: 210px;
   font-variant-numeric: tabular-nums;
 }
 
+.endMarker[data-state='overdue'] {
+  background: repeating-linear-gradient(to bottom, var(--warning-color) 0 4px, transparent 4px 7px);
+
+  .endMarkerLabel {
+    color: var(--warning-color);
+  }
+}
+
 .laneEndedBadge {
   flex: none;
   padding: 0 6px;

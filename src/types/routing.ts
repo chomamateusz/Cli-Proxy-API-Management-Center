@@ -6,7 +6,7 @@
  * that order made explicit for every config API key, OpenAI-compatible provider and credential.
  */
 
-import type { AuthFileCooldownSnapshot } from './authFile';
+import type { AuthFileCooldownSnapshot, ReportedCredentialEnd } from './authFile';
 import type { RoutingStrategy } from './visualConfig';
 
 export type { RoutingStrategy };
@@ -85,10 +85,8 @@ export interface RoutingMember {
   modelSource: RoutingModelSource;
   /** Credentials only. */
   unavailable: boolean;
-  /** Credentials only. */
-  endsAtMs: number | null;
-  /** The backend's ended verdict at list time; the clock can end a member later. */
-  ended: boolean;
+  /** Credentials only; the list verdict, which the clock can overtake. */
+  end: ReportedCredentialEnd;
   cooldowns: AuthFileCooldownSnapshot | null;
   location: RoutingMemberLocation;
 }

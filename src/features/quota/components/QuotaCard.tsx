@@ -22,8 +22,8 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
-import { paidUntilMsFor, readCredentialEnd } from '../credentialEnd';
-import { CredentialEndControl, type SaveCredentialEnd } from './CredentialEndControl';
+import { paidUntilMsFor, readCredentialEnd, unusedResetsForCredential } from '../credentialEnd';
+import { CredentialEndControl, type CredentialEndActions } from './CredentialEndControl';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
 
@@ -41,7 +41,7 @@ export type QuotaCardProps = {
   onRefresh: () => void;
   onReset: () => void;
   canEditEnd: boolean;
-  onSaveEnd: SaveCredentialEnd;
+  endActions: CredentialEndActions;
   /** Fixed clock for static rendering; defaults to the shared minute clock. */
   nowMs?: number;
 };
@@ -57,7 +57,7 @@ export function QuotaCard(props: QuotaCardProps) {
     onRefresh,
     onReset,
     canEditEnd,
-    onSaveEnd,
+    endActions,
     nowMs: nowProp,
   } = props;
   const { t } = useTranslation();
@@ -65,7 +65,8 @@ export function QuotaCard(props: QuotaCardProps) {
   const file = entry.file;
   const tick = useNow(nowProp === undefined);
   const nowMs = nowProp ?? tick;
-  const { ended } = readCredentialEnd(file, nowMs);
+  const credentialEnd = readCredentialEnd(file, nowMs);
+  const { ended } = credentialEnd;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
   const displayName = getQuotaDisplayName(file);
@@ -214,8 +215,15 @@ export function QuotaCard(props: QuotaCardProps) {
         subject={displayName}
         variant="card"
         paidUntilMs={paidUntilMsFor(entry.type, quota, file)}
+        cancellable={entry.type === 'claude'}
+        unusedResets={unusedResetsForCredential(
+          entry.type,
+          credentialEnd,
+          quota,
+          claudeReset.lines
+        )}
         disabled={!canEditEnd}
-        onSave={onSaveEnd}
+        actions={endActions}
         nowMs={nowMs}
       />
 
