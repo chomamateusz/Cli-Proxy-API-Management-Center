@@ -56,6 +56,19 @@
   color: var(--warning-text);
 }
 
+.scroll {
+  max-height: min(560px, 70vh);
+  overflow-y: auto;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--bg-primary);
+    background-image: linear-gradient(var(--muted-bg), var(--muted-bg));
+  }
+}
+
 .table {
   min-width: 860px;
   font-size: 12.5px;
