@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "클라이언트 키",
+    "usage": "사용량",
     "dashboard": "대시보드",
     "quick_start": "빠른 시작",
     "ai_providers": "AI 공급자",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "발급된 키와 키별 접근 제어",
+    "usage": "키별 토큰과 실시간 트래픽",
     "dashboard": "운영 개요",
     "quick_start": "APIKEY.FUN 설정",
     "ai_providers": "업스트림 모델 라우팅",
@@ -1734,6 +1736,82 @@
     "weekday_thu": "목",
     "weekday_fri": "금",
     "weekday_sat": "토"
+  },
+  "usage": {
+    "title": "사용량",
+    "subtitle": "클라이언트 키별 토큰과 요청, 그리고 실시간 요청 흐름입니다.",
+    "loading": "불러오는 중…",
+    "load_failed": "사용량을 불러오지 못했습니다",
+    "retry": "다시 시도",
+    "refreshing": "업데이트 중",
+    "refresh_failed": "새로 고침에 실패했습니다. 마지막으로 불러온 데이터를 표시합니다.",
+    "unsupported": "이 프록시는 아직 사용량을 제공하지 않습니다. 사용량 엔드포인트가 있는 빌드로 업데이트하세요.",
+    "disconnected": "사용량을 보려면 프록시에 연결하세요.",
+    "empty_range": "이 범위에는 사용량이 없습니다.",
+    "empty_never": "아직 기록된 것이 없습니다.",
+    "by_key": {
+      "title": "클라이언트 키별 사용량",
+      "recording_since": "{{since}}부터 기록 · 현지 시간",
+      "local_time": "현지 시간",
+      "daily": "일 단위 집계(UTC 기준 일)"
+    },
+    "range": {
+      "label": "범위",
+      "today": "오늘",
+      "24h": "최근 24시간",
+      "7d": "최근 7일",
+      "all": "전체 기록",
+      "start": "범위 시작",
+      "end": "범위 끝",
+      "window": "범위:"
+    },
+    "metric": {
+      "label": "지표",
+      "total": "전체 토큰",
+      "output": "출력 토큰",
+      "requests": "요청 수"
+    },
+    "provider": {
+      "label": "제공자",
+      "all": "전체"
+    },
+    "chart": {
+      "aria": "클라이언트 키별 {{metric}}, {{range}}",
+      "legend": "클라이언트 키 표시 또는 숨기기",
+      "bucket_total": "합계"
+    },
+    "totals": {
+      "title": "선택한 범위의 합계",
+      "sorted_by": "{{metric}} 기준 정렬",
+      "key": "키",
+      "failed": "실패",
+      "share": "비율",
+      "created": "생성일",
+      "revoked": "폐기됨",
+      "no_models": "이 키에는 모델별 내역이 없습니다."
+    },
+    "live": {
+      "title": "실시간 트래픽",
+      "note": "프록시가 메모리에 보관하는 최근 요청이며, 프록시를 다시 시작하면 목록이 비워집니다.",
+      "time": "시간",
+      "key": "키",
+      "model": "모델",
+      "account": "계정",
+      "status": "상태",
+      "latency": "지연 시간",
+      "tokens": "입력 / 출력 / 캐시 읽기",
+      "stream": "스트림",
+      "ok": "성공",
+      "failed": "실패",
+      "ttft": "첫 토큰까지 {{value}} ms",
+      "all_keys": "모든 키",
+      "key_filter": "키로 필터",
+      "pause": "일시 정지",
+      "resume": "재개",
+      "empty": "프록시 시작 이후 요청이 없습니다.",
+      "load_failed": "실시간 트래픽을 불러오지 못했습니다",
+      "poll_failed": "실시간 업데이트에 실패했습니다. 다시 시도하는 중입니다."
+    }
   },
   "client_keys": {
     "title": "클라이언트 키",

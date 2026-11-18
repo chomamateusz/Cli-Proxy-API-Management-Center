@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "Khóa máy khách",
+    "usage": "Mức sử dụng",
     "dashboard": "Bảng điều khiển",
     "quick_start": "Bắt đầu nhanh",
     "ai_providers": "AI Provider",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "Khóa đã cấp và quyền truy cập theo khóa",
+    "usage": "Token theo khóa và lưu lượng trực tiếp",
     "dashboard": "Tổng quan vận hành",
     "quick_start": "Thiết lập APIKEY.FUN",
     "ai_providers": "Định tuyến model upstream",
@@ -1690,6 +1692,82 @@
     "search_empty_title": "Không có tài khoản phù hợp",
     "search_empty_desc": "Hãy thử tên file hoặc email khác, hoặc xóa tìm kiếm.",
     "search_clear": "Xóa tìm kiếm"
+  },
+  "usage": {
+    "title": "Mức sử dụng",
+    "subtitle": "Token và yêu cầu theo từng khóa máy khách, cùng luồng yêu cầu trực tiếp.",
+    "loading": "Đang tải…",
+    "load_failed": "Không tải được mức sử dụng",
+    "retry": "Thử lại",
+    "refreshing": "đang cập nhật",
+    "refresh_failed": "Làm mới thất bại; đang hiển thị dữ liệu tải gần nhất.",
+    "unsupported": "Proxy này chưa cung cấp dữ liệu sử dụng. Hãy cập nhật lên bản có các endpoint sử dụng.",
+    "disconnected": "Kết nối tới proxy để xem mức sử dụng.",
+    "empty_range": "Không có mức sử dụng trong khoảng này.",
+    "empty_never": "Chưa ghi nhận gì.",
+    "by_key": {
+      "title": "Mức sử dụng theo khóa máy khách",
+      "recording_since": "Ghi nhận từ {{since}} · giờ địa phương",
+      "local_time": "Giờ địa phương",
+      "daily": "gộp theo ngày (ngày UTC)"
+    },
+    "range": {
+      "label": "Khoảng thời gian",
+      "today": "Hôm nay",
+      "24h": "24 giờ qua",
+      "7d": "7 ngày qua",
+      "all": "Toàn bộ đã ghi",
+      "start": "Đầu khoảng",
+      "end": "Cuối khoảng",
+      "window": "Khoảng:"
+    },
+    "metric": {
+      "label": "Chỉ số",
+      "total": "Tất cả token",
+      "output": "Token đầu ra",
+      "requests": "Yêu cầu"
+    },
+    "provider": {
+      "label": "Nhà cung cấp",
+      "all": "Tất cả"
+    },
+    "chart": {
+      "aria": "{{metric}} theo khóa máy khách, {{range}}",
+      "legend": "Hiện hoặc ẩn khóa máy khách",
+      "bucket_total": "Tổng"
+    },
+    "totals": {
+      "title": "Tổng cho khoảng đã chọn",
+      "sorted_by": "Sắp xếp theo {{metric}}",
+      "key": "Khóa",
+      "failed": "Thất bại",
+      "share": "Tỷ lệ",
+      "created": "Ngày tạo",
+      "revoked": "Đã thu hồi",
+      "no_models": "Khóa này không có phân tích theo mô hình."
+    },
+    "live": {
+      "title": "Lưu lượng trực tiếp",
+      "note": "Các yêu cầu gần nhất của proxy, lưu trong bộ nhớ; danh sách bị xóa khi proxy khởi động lại.",
+      "time": "Thời gian",
+      "key": "Khóa",
+      "model": "Mô hình",
+      "account": "Tài khoản",
+      "status": "Trạng thái",
+      "latency": "Độ trễ",
+      "tokens": "Vào / ra / đọc cache",
+      "stream": "Luồng",
+      "ok": "Thành công",
+      "failed": "Thất bại",
+      "ttft": "Token đầu tiên sau {{value}} ms",
+      "all_keys": "Tất cả khóa",
+      "key_filter": "Lọc theo khóa",
+      "pause": "Tạm dừng",
+      "resume": "Tiếp tục",
+      "empty": "Chưa có yêu cầu nào từ khi proxy khởi động.",
+      "load_failed": "Không tải được lưu lượng trực tiếp",
+      "poll_failed": "Cập nhật trực tiếp thất bại; đang thử lại."
+    }
   },
   "client_keys": {
     "title": "Khóa máy khách",

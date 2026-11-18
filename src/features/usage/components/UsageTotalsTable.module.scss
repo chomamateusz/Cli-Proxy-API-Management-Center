@@ -1,0 +1,124 @@
+.table {
+  min-width: 640px;
+
+  th[data-active='true'] {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.table .keyRow td,
+.table .modelRow td {
+  vertical-align: middle;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.keyCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 280px;
+}
+
+.expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  svg {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--swatch);
+}
+
+.keyName,
+.modelName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revoked {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid var(--destructive-30);
+  border-radius: 999px;
+  background: var(--destructive-10);
+  color: var(--destructive-color);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.failed {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.created {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.table .modelRow td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: var(--bg-quinary);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.modelCell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 280px;
+  padding-left: 22px;
+}
+
+.provider {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.modelName {
+  color: var(--text-primary);
+}
+
+.modelEmpty {
+  padding-left: 22px;
+  color: var(--text-tertiary);
+}
