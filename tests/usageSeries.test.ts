@@ -7,6 +7,7 @@ import {
   buildKeyTotals,
   formatCompact,
   metricValue,
+  niceCeiling,
   providersIn,
   seriesKeyOrder,
   timeTicks,
@@ -227,6 +228,21 @@ describe('usage number and axis formatting', () => {
     expect(formatCompact(12_340)).toBe('12.3k');
     expect(formatCompact(2_500_000)).toBe('2.5M');
     expect(formatCompact(3_200_000_000)).toBe('3.2B');
+  });
+
+  test('axis ceilings split into four distinct whole-number steps', () => {
+    expect(niceCeiling(0)).toBe(4);
+    expect(niceCeiling(3)).toBe(4);
+    expect(niceCeiling(9)).toBe(12);
+    expect(niceCeiling(45)).toBe(60);
+    expect(niceCeiling(2_300_000_000)).toBe(2_400_000_000);
+    for (let max = 1; max <= 5000; max += 1) {
+      const ceiling = niceCeiling(max);
+      expect(ceiling).toBeGreaterThanOrEqual(max);
+      expect(Number.isInteger(ceiling / 4)).toBe(true);
+      const labels = [1, 0.75, 0.5, 0.25, 0].map((fraction) => formatCompact(ceiling * fraction));
+      expect(new Set(labels).size).toBe(labels.length);
+    }
   });
 
   test('time ticks stay within the range and never exceed the requested count', () => {

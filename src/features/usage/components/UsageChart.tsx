@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SeriesGranularity } from '@/types/fleetUsage';
 import {
   formatCompact,
+  AXIS_INTERVALS,
   niceCeiling,
   timeTicks,
   type ChartBucket,
@@ -18,7 +19,10 @@ import {
 import styles from './UsageChart.module.scss';
 
 const BOX = 1000;
-const Y_FRACTIONS = [1, 0.75, 0.5, 0.25, 0];
+const Y_FRACTIONS = Array.from(
+  { length: AXIS_INTERVALS + 1 },
+  (_, index) => 1 - index / AXIS_INTERVALS
+);
 const SEPARATED_BAR_LIMIT = 200;
 
 export interface UsageChartProps {
@@ -66,6 +70,7 @@ export function UsageChart({
   const hoveredRows = hovered
     ? segments
         .map((segment) => ({ segment, value: hovered.values.get(segment) ?? 0 }))
+        .filter((row) => row.value > 0)
         .sort((left, right) => right.value - left.value)
     : [];
   const hoverCenter = hovered ? leftPercent((hovered.startMs + hovered.endMs) / 2) : 0;

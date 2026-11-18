@@ -191,11 +191,17 @@ export function formatCompact(value: number): string {
   return String(Math.round(value));
 }
 
+export const AXIS_INTERVALS = 4;
+const AXIS_STEP_FACTORS = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+
 export function niceCeiling(value: number): number {
-  if (value <= 0) return 1;
-  const exponent = 10 ** Math.floor(Math.log10(value));
-  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((factor) => factor * exponent >= value);
-  return (step ?? 10) * exponent;
+  const rawStep = value / AXIS_INTERVALS;
+  if (rawStep <= 1) return AXIS_INTERVALS;
+  const exponent = 10 ** Math.floor(Math.log10(rawStep));
+  const step = AXIS_STEP_FACTORS.map((factor) => factor * exponent).find(
+    (candidate) => Number.isInteger(candidate) && candidate >= rawStep
+  );
+  return (step ?? 10 * exponent) * AXIS_INTERVALS;
 }
 
 const TICK_STEPS_HOURS = [1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720];
