@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
   ALL_PROVIDERS,
-  OTHER_SEGMENT,
   assignColorSlots,
   bucketStarts,
   buildChartBuckets,
@@ -12,6 +11,7 @@ import {
   seriesKeyOrder,
   timeTicks,
 } from '../src/features/usage/usageSeries';
+import { seriesColor } from '../src/features/usage/usageFormat';
 import type { ClientKeyUsageReport, KeyUsage, UsageSeriesPoint } from '../src/types/fleetUsage';
 
 const HOUR = 3_600_000;
@@ -45,11 +45,6 @@ const SERIES: UsageSeriesPoint[] = [
   point(26, 'laptop', 'codex', 'gpt-5.5', counters(5, 500, 5000)),
 ];
 
-const SLOTS = new Map([
-  ['laptop', 0],
-  ['ci', 1],
-]);
-
 const HOUR_RANGE = { fromMs: T0, toMs: T0 + 3 * HOUR };
 
 describe('usage series aggregation', () => {
@@ -62,18 +57,18 @@ describe('usage series aggregation', () => {
 
   test('hour buckets stack every key per bucket for each metric', () => {
     const base = { range: HOUR_RANGE, granularity: 'hour' as const, provider: ALL_PROVIDERS };
-    const total = buildChartBuckets(SERIES, { ...base, metric: 'total', slots: SLOTS });
+    const total = buildChartBuckets(SERIES, { ...base, metric: 'total' });
     expect(total.map((bucket) => bucket.startMs)).toEqual([T0, T0 + HOUR, T0 + 2 * HOUR]);
-    expect(total[0].values).toEqual({ laptop: 1300, ci: 200 });
+    expect(Object.fromEntries(total[0].values)).toEqual({ laptop: 1300, ci: 200 });
     expect(total[0].total).toBe(1500);
     expect(total[1].total).toBe(0);
-    expect(total[2].values).toEqual({ ci: 400 });
+    expect(Object.fromEntries(total[2].values)).toEqual({ ci: 400 });
 
-    const output = buildChartBuckets(SERIES, { ...base, metric: 'output', slots: SLOTS });
-    expect(output[0].values).toEqual({ laptop: 150, ci: 20 });
+    const output = buildChartBuckets(SERIES, { ...base, metric: 'output' });
+    expect(Object.fromEntries(output[0].values)).toEqual({ laptop: 150, ci: 20 });
 
-    const requests = buildChartBuckets(SERIES, { ...base, metric: 'requests', slots: SLOTS });
-    expect(requests[0].values).toEqual({ laptop: 4, ci: 4 });
+    const requests = buildChartBuckets(SERIES, { ...base, metric: 'requests' });
+    expect(Object.fromEntries(requests[0].values)).toEqual({ laptop: 4, ci: 4 });
   });
 
   test('provider filter keeps only that provider and hidden keys drop out of the stack', () => {
@@ -82,19 +77,17 @@ describe('usage series aggregation', () => {
       granularity: 'hour',
       metric: 'total',
       provider: 'codex',
-      slots: SLOTS,
     });
-    expect(buckets[0].values).toEqual({ laptop: 300 });
+    expect(Object.fromEntries(buckets[0].values)).toEqual({ laptop: 300 });
 
     const hidden = buildChartBuckets(SERIES, {
       range: HOUR_RANGE,
       granularity: 'hour',
       metric: 'total',
       provider: ALL_PROVIDERS,
-      slots: SLOTS,
       hidden: new Set(['laptop']),
     });
-    expect(hidden[0].values).toEqual({ ci: 200 });
+    expect(Object.fromEntries(hidden[0].values)).toEqual({ ci: 200 });
     expect(hidden[0].total).toBe(200);
   });
 
@@ -110,26 +103,53 @@ describe('usage series aggregation', () => {
       granularity: 'day',
       metric: 'total',
       provider: ALL_PROVIDERS,
-      slots: SLOTS,
     });
     expect(buckets.map((bucket) => bucket.total)).toEqual([10, 20]);
     expect(buckets[0].endMs - buckets[0].startMs).toBe(DAY);
   });
 
-  test('keys beyond the eight colour slots fold into Other', () => {
+  test('keys beyond the eight palette colours keep their own segment and reuse colours', () => {
     const names = Array.from({ length: 10 }, (_, index) => `key-${index}`);
     const slots = assignColorSlots(new Map(), names);
-    expect(slots.size).toBe(8);
+    expect(slots.size).toBe(10);
     const series = names.map((name) => point(0, name, 'claude', 'm', counters(1, 1, 10)));
     const [bucket] = buildChartBuckets(series, {
       range: { fromMs: T0, toMs: T0 + HOUR },
       granularity: 'hour',
       metric: 'total',
       provider: ALL_PROVIDERS,
-      slots,
     });
-    expect(bucket.values[OTHER_SEGMENT]).toBe(20);
-    expect(bucket.values['key-0']).toBe(10);
+    expect(bucket.values.size).toBe(10);
+    expect(names.every((name) => bucket.values.get(name) === 10)).toBe(true);
+    expect(seriesColor('key-8', slots)).toBe('var(--viz-series-1)');
+    expect(seriesColor('key-9', slots)).toBe('var(--viz-series-2)');
+  });
+
+  test('a key first seen after a range change gets its own slot once the palette is used up', () => {
+    const historical = Array.from({ length: 8 }, (_, index) => `old-${index}`);
+    const slots = assignColorSlots(assignColorSlots(new Map(), historical), ['fresh']);
+    expect(slots.get('fresh')).toBe(8);
+    const [bucket] = buildChartBuckets([point(0, 'fresh', 'claude', 'm', counters(1, 1, 10))], {
+      range: { fromMs: T0, toMs: T0 + HOUR },
+      granularity: 'hour',
+      metric: 'total',
+      provider: ALL_PROVIDERS,
+    });
+    expect(bucket.values.get('fresh')).toBe(10);
+  });
+
+  test('key names that shadow object prototype properties still sum as numbers', () => {
+    const names = ['constructor', 'toString', '__proto__'];
+    const series = names.map((name) => point(0, name, 'claude', 'm', counters(1, 1, 100)));
+    const [bucket] = buildChartBuckets(series, {
+      range: { fromMs: T0, toMs: T0 + HOUR },
+      granularity: 'hour',
+      metric: 'total',
+      provider: ALL_PROVIDERS,
+    });
+    expect(names.map((name) => bucket.values.get(name))).toEqual([100, 100, 100]);
+    expect(bucket.values.get('hasOwnProperty')).toBeUndefined();
+    expect(bucket.total).toBe(300);
   });
 
   test('colour slots follow the key, not its rank, when new keys appear', () => {

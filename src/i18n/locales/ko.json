@@ -1778,7 +1778,6 @@
     "chart": {
       "aria": "클라이언트 키별 {{metric}}, {{range}}",
       "legend": "클라이언트 키 표시 또는 숨기기",
-      "other": "기타 키",
       "bucket_total": "합계"
     },
     "totals": {

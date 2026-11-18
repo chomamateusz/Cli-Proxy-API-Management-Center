@@ -1777,7 +1777,6 @@
     "chart": {
       "aria": "各客户端密钥的{{metric}}，{{range}}",
       "legend": "显示或隐藏客户端密钥",
-      "other": "其他密钥",
       "bucket_total": "合计"
     },
     "totals": {

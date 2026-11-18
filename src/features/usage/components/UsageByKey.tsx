@@ -9,7 +9,7 @@ import type { ClientKeyUsageReport } from '@/types/fleetUsage';
 import { HOUR_MS } from '@/utils/time/durations';
 import {
   RANGE_PRESETS,
-  rangeFromSlider,
+  moveSliderHandle,
   recordedSpan,
   sliderPosition,
   type RangePreset,
@@ -18,13 +18,11 @@ import {
 } from '../usageRange';
 import {
   ALL_PROVIDERS,
-  OTHER_SEGMENT,
   USAGE_METRICS,
   assignColorSlots,
   buildChartBuckets,
   buildKeyTotals,
   providersIn,
-  segmentOf,
   seriesKeyOrder,
   type UsageMetric,
 } from '../usageSeries';
@@ -85,12 +83,13 @@ export function UsageByKey({
   const providerOptions = [ALL_PROVIDERS, ...providers];
   if (!providerOptions.includes(provider)) providerOptions.push(provider);
 
-  const segments = useMemo(() => {
-    const present = new Set(orderedNames.map((name) => segmentOf(name, nextSlots)));
-    return [...present].sort(
-      (left, right) => (nextSlots.get(left) ?? Infinity) - (nextSlots.get(right) ?? Infinity)
-    );
-  }, [orderedNames, nextSlots]);
+  const segments = useMemo(
+    () =>
+      [...orderedNames].sort(
+        (left, right) => (nextSlots.get(left) ?? Infinity) - (nextSlots.get(right) ?? Infinity)
+      ),
+    [orderedNames, nextSlots]
+  );
 
   const buckets = useMemo(
     () =>
@@ -100,11 +99,10 @@ export function UsageByKey({
             granularity: report.granularity,
             metric,
             provider,
-            slots: nextSlots,
             hidden,
           })
         : [],
-    [report, series, metric, provider, nextSlots, hidden]
+    [report, series, metric, provider, hidden]
   );
   const totals = useMemo(
     () => (report ? buildKeyTotals(report.keys, metric, provider) : []),
@@ -112,8 +110,6 @@ export function UsageByKey({
   );
 
   const metricLabel = t(`usage.metric.${metric}`);
-  const segmentLabel = (segment: string) =>
-    segment === OTHER_SEGMENT ? t('usage.chart.other') : segment;
   const visibleSegments = segments.filter((segment) => !hidden.has(segment));
   const toggleSegment = (segment: string) =>
     setHidden((current) => {
@@ -174,7 +170,6 @@ export function UsageByKey({
         slots={nextSlots}
         granularity={report.granularity}
         range={{ fromMs: report.fromMs, toMs: report.toMs }}
-        segmentLabel={segmentLabel}
         ariaLabel={t('usage.chart.aria', { metric: metricLabel, range: windowLabel })}
       />
     );
@@ -245,14 +240,14 @@ export function UsageByKey({
                 type="button"
                 className={styles.legendItem}
                 aria-pressed={!hidden.has(segment)}
-                title={segmentLabel(segment)}
+                title={segment}
                 onClick={() => toggleSegment(segment)}
               >
                 <span
                   className={styles.swatch}
                   style={{ '--swatch': seriesColor(segment, nextSlots) } as CSSProperties}
                 />
-                <span className={styles.legendName}>{segmentLabel(segment)}</span>
+                <span className={styles.legendName}>{segment}</span>
               </button>
             ))}
           </div>
@@ -266,8 +261,11 @@ export function UsageByKey({
             lo={slider.lo}
             hi={slider.hi}
             formatStep={(step) => formatDateTime(span.fromMs + step * HOUR_MS, locale)}
-            onChange={(lo, hi) =>
-              onSelectionChange({ kind: 'custom', range: rangeFromSlider(lo, hi, span) })
+            onChange={(handle, step) =>
+              onSelectionChange({
+                kind: 'custom',
+                range: moveSliderHandle(handle, step, range, span, nowMs),
+              })
             }
           />
         )}

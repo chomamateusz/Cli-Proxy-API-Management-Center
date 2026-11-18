@@ -1778,7 +1778,6 @@
     "chart": {
       "aria": "İstemci anahtarı başına {{metric}}, {{range}}",
       "legend": "İstemci anahtarlarını göster veya gizle",
-      "other": "Diğer anahtarlar",
       "bucket_total": "Toplam"
     },
     "totals": {

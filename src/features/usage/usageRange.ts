@@ -49,7 +49,7 @@ export function presetRange(
     all: recordingSinceMs === null ? nowMs - DAY_MS : floorHour(recordingSinceMs),
   }[preset];
   if (recordingSinceMs === null) return { fromMs, toMs: nowMs };
-  return clampRange({ fromMs, toMs: nowMs }, { fromMs: floorHour(recordingSinceMs), toMs: nowMs });
+  return { fromMs: Math.min(Math.max(fromMs, floorHour(recordingSinceMs)), nowMs), toMs: nowMs };
 }
 
 export function resolveSelection(
@@ -71,21 +71,38 @@ export interface SliderPosition {
   hi: number;
 }
 
+const spanSteps = (span: TimeRange) =>
+  Math.max(1, Math.round((span.toMs - span.fromMs) / HOUR_MS));
+
 export function sliderPosition(range: TimeRange, span: TimeRange): SliderPosition {
-  const steps = Math.max(1, Math.round((span.toMs - span.fromMs) / HOUR_MS));
-  const toStep = (ms: number) =>
-    Math.min(steps, Math.max(0, Math.round((ms - span.fromMs) / HOUR_MS)));
-  const hi = Math.max(1, toStep(range.toMs));
-  return { steps, lo: Math.min(toStep(range.fromMs), hi - 1), hi };
+  const steps = spanSteps(span);
+  const clampStep = (step: number) => Math.min(steps, Math.max(0, step));
+  const hoursIntoSpan = (ms: number) => (ms - span.fromMs) / HOUR_MS;
+  const hi = Math.max(1, clampStep(Math.ceil(hoursIntoSpan(range.toMs))));
+  return { steps, lo: Math.min(clampStep(Math.floor(hoursIntoSpan(range.fromMs))), hi - 1), hi };
 }
 
-/** A handle dragged to the end of the span keeps following the clock, hence the open end. */
-export function rangeFromSlider(lo: number, hi: number, span: TimeRange): TimeRange {
-  const steps = Math.max(1, Math.round((span.toMs - span.fromMs) / HOUR_MS));
-  const upper = Math.min(steps, Math.max(1, hi));
-  const lower = Math.min(upper - 1, Math.max(0, lo));
+export type SliderHandle = 'start' | 'end';
+
+/** An end that reaches the present stays open, so the range keeps following the clock. */
+export function moveSliderHandle(
+  handle: SliderHandle,
+  step: number,
+  current: TimeRange,
+  span: TimeRange,
+  nowMs: number
+): TimeRange {
+  const steps = spanSteps(span);
+  const clamped = Math.min(steps, Math.max(0, step));
+  const atMs = span.fromMs + clamped * HOUR_MS;
+  if (handle === 'start') {
+    return {
+      fromMs: atMs,
+      toMs: current.toMs >= nowMs ? Number.POSITIVE_INFINITY : current.toMs,
+    };
+  }
   return {
-    fromMs: span.fromMs + lower * HOUR_MS,
-    toMs: upper >= steps ? Number.POSITIVE_INFINITY : span.fromMs + upper * HOUR_MS,
+    fromMs: current.fromMs,
+    toMs: clamped >= steps ? Number.POSITIVE_INFINITY : atMs,
   };
 }

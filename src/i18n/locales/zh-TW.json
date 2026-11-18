@@ -1805,7 +1805,6 @@
     "chart": {
       "aria": "各用戶端金鑰的{{metric}}，{{range}}",
       "legend": "顯示或隱藏用戶端金鑰",
-      "other": "其他金鑰",
       "bucket_total": "合計"
     },
     "totals": {

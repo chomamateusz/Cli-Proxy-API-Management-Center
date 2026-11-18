@@ -1778,7 +1778,6 @@
     "chart": {
       "aria": "{{metric}} per client key, {{range}}",
       "legend": "Show or hide client keys",
-      "other": "Other keys",
       "bucket_total": "Total"
     },
     "totals": {

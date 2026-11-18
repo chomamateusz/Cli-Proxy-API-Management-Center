@@ -1,5 +1,5 @@
 import type { SeriesGranularity } from '@/types/fleetUsage';
-import { OTHER_SEGMENT } from './usageSeries';
+import { COLOR_SLOT_COUNT } from './usageSeries';
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -68,6 +68,8 @@ export function formatShare(share: number): string {
 }
 
 export function seriesColor(segment: string, slots: ReadonlyMap<string, number>): string {
-  const slot = segment === OTHER_SEGMENT ? undefined : slots.get(segment);
-  return slot === undefined ? 'var(--viz-series-other)' : `var(--viz-series-${slot + 1})`;
+  const slot = slots.get(segment);
+  return slot === undefined
+    ? 'var(--viz-series-other)'
+    : `var(--viz-series-${(slot % COLOR_SLOT_COUNT) + 1})`;
 }

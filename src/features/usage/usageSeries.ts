@@ -14,7 +14,6 @@ export type UsageMetric = (typeof USAGE_METRICS)[number];
 
 export const ALL_PROVIDERS = 'all';
 export const COLOR_SLOT_COUNT = 8;
-export const OTHER_SEGMENT = '\u0000other';
 
 export const isUsageMetric = (value: unknown): value is UsageMetric =>
   typeof value === 'string' && (USAGE_METRICS as readonly string[]).includes(value);
@@ -76,19 +75,15 @@ export function assignColorSlots(
 ): Map<string, number> {
   const slots = new Map(existing);
   for (const name of orderedNames) {
-    if (slots.has(name) || slots.size >= COLOR_SLOT_COUNT) continue;
-    slots.set(name, slots.size);
+    if (!slots.has(name)) slots.set(name, slots.size);
   }
   return slots;
 }
 
-export const segmentOf = (key: string, slots: ReadonlyMap<string, number>) =>
-  slots.has(key) ? key : OTHER_SEGMENT;
-
 export interface ChartBucket {
   startMs: number;
   endMs: number;
-  values: Record<string, number>;
+  values: Map<string, number>;
   total: number;
 }
 
@@ -97,7 +92,6 @@ export interface BucketOptions {
   granularity: SeriesGranularity;
   metric: UsageMetric;
   provider: string;
-  slots: ReadonlyMap<string, number>;
   hidden?: ReadonlySet<string>;
 }
 
@@ -109,18 +103,17 @@ export function buildChartBuckets(
   const buckets = bucketStarts(options.range, options.granularity).map((startMs): ChartBucket => ({
     startMs,
     endMs: startMs + step,
-    values: {},
+    values: new Map(),
     total: 0,
   }));
   const byStart = new Map(buckets.map((bucket) => [bucket.startMs, bucket]));
   for (const point of series) {
     if (!matchesProvider(point.provider, options.provider)) continue;
-    const segment = segmentOf(point.key, options.slots);
-    if (options.hidden?.has(segment)) continue;
+    if (options.hidden?.has(point.key)) continue;
     const bucket = byStart.get(point.startMs);
     const value = metricValue(point, options.metric);
     if (!bucket || value === 0) continue;
-    bucket.values[segment] = (bucket.values[segment] ?? 0) + value;
+    bucket.values.set(point.key, (bucket.values.get(point.key) ?? 0) + value);
     bucket.total += value;
   }
   return buckets;

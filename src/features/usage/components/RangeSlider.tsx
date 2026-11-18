@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
+import type { SliderHandle } from '../usageRange';
 import styles from './RangeSlider.module.scss';
 
 export interface RangeSliderProps {
   steps: number;
   lo: number;
   hi: number;
-  onChange: (lo: number, hi: number) => void;
+  onChange: (handle: SliderHandle, step: number) => void;
   formatStep: (step: number) => string;
 }
 
@@ -28,7 +29,7 @@ export function RangeSlider({ steps, lo, hi, onChange, formatStep }: RangeSlider
         value={lo}
         aria-label={t('usage.range.start')}
         aria-valuetext={formatStep(lo)}
-        onChange={(event) => onChange(Math.min(Number(event.target.value), hi - 1), hi)}
+        onChange={(event) => onChange('start', Math.min(Number(event.target.value), hi - 1))}
       />
       <input
         type="range"
@@ -38,7 +39,7 @@ export function RangeSlider({ steps, lo, hi, onChange, formatStep }: RangeSlider
         value={hi}
         aria-label={t('usage.range.end')}
         aria-valuetext={formatStep(hi)}
-        onChange={(event) => onChange(lo, Math.max(Number(event.target.value), lo + 1))}
+        onChange={(event) => onChange('end', Math.max(Number(event.target.value), lo + 1))}
       />
     </div>
   );

@@ -150,6 +150,30 @@ describe('usage page rendering', () => {
     expect(html).not.toContain('<svg role="img" class="pie');
   });
 
+  test('every key keeps its own segment and legend toggle, whatever its name', () => {
+    const names = [
+      'constructor',
+      'toString',
+      '__proto__',
+      ...Array.from({ length: 8 }, (_, index) => `key-${index}`),
+    ];
+    const report: ClientKeyUsageReport = {
+      ...REPORT,
+      keys: [],
+      series: names.map((key) => ({
+        startMs: FROM,
+        key,
+        provider: 'claude',
+        model: 'claude-opus-5',
+        ...counters(1, 100),
+      })),
+    };
+    const html = render(createElement(UsageByKey, { ...usageProps, report }));
+    expect(html.match(/<rect/g)?.length).toBe(names.length);
+    expect(names.filter((name) => !html.includes(`title="${name}"`))).toEqual([]);
+    expect(html).not.toContain('NaN');
+  });
+
   test('the key chart shows an empty state and an error state', () => {
     const empty = render(
       createElement(UsageByKey, { ...usageProps, report: { ...REPORT, series: [], keys: [] } })

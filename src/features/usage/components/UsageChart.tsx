@@ -2,7 +2,6 @@ import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SeriesGranularity } from '@/types/fleetUsage';
 import {
-  OTHER_SEGMENT,
   formatCompact,
   niceCeiling,
   timeTicks,
@@ -28,7 +27,6 @@ export interface UsageChartProps {
   slots: ReadonlyMap<string, number>;
   granularity: SeriesGranularity;
   range: TimeRange;
-  segmentLabel: (segment: string) => string;
   ariaLabel: string;
 }
 
@@ -41,7 +39,6 @@ export function UsageChart({
   slots,
   granularity,
   range,
-  segmentLabel,
   ariaLabel,
 }: UsageChartProps) {
   const { t, i18n } = useTranslation();
@@ -68,7 +65,7 @@ export function UsageChart({
   const hovered = hoverIndex === null ? null : (buckets[hoverIndex] ?? null);
   const hoveredRows = hovered
     ? segments
-        .map((segment) => ({ segment, value: hovered.values[segment] ?? 0 }))
+        .map((segment) => ({ segment, value: hovered.values.get(segment) ?? 0 }))
         .sort((left, right) => right.value - left.value)
     : [];
   const hoverCenter = hovered ? leftPercent((hovered.startMs + hovered.endMs) / 2) : 0;
@@ -118,7 +115,7 @@ export function UsageChart({
           {buckets.map((bucket, index) => {
             let base = BOX;
             return segments.map((segment) => {
-              const value = bucket.values[segment] ?? 0;
+              const value = bucket.values.get(segment) ?? 0;
               if (value <= 0) return null;
               const height = (value / ceiling) * BOX;
               base -= height;
@@ -153,8 +150,8 @@ export function UsageChart({
                   className={styles.swatch}
                   style={{ '--swatch': seriesColor(segment, slots) } as CSSProperties}
                 />
-                <span className={styles.tooltipName}>
-                  {segment === OTHER_SEGMENT ? t('usage.chart.other') : segmentLabel(segment)}
+                <span className={styles.tooltipName} title={segment}>
+                  {segment}
                 </span>
                 <span className={styles.tooltipValue}>{formatInteger(value, locale)}</span>
               </span>

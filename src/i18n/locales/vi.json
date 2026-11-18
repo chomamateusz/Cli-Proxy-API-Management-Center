@@ -1734,7 +1734,6 @@
     "chart": {
       "aria": "{{metric}} theo khóa máy khách, {{range}}",
       "legend": "Hiện hoặc ẩn khóa máy khách",
-      "other": "Khóa khác",
       "bucket_total": "Tổng"
     },
     "totals": {
