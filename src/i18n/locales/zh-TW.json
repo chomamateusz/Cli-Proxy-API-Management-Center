@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "用戶端金鑰",
+    "usage": "用量",
     "dashboard": "儀表板",
     "quick_start": "快速開始",
     "ai_providers": "AI 供應商",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "已簽發金鑰與按金鑰存取控制",
+    "usage": "依金鑰統計的權杖與即時流量",
     "dashboard": "運行總覽",
     "quick_start": "APIKEY.FUN 快速設定",
     "ai_providers": "上游模型路由",
@@ -1761,6 +1763,83 @@
     "weekday_thu": "四",
     "weekday_fri": "五",
     "weekday_sat": "六"
+  },
+  "usage": {
+    "title": "用量",
+    "subtitle": "依用戶端金鑰統計的權杖與請求，以及即時請求串流。",
+    "loading": "載入中…",
+    "load_failed": "無法載入用量",
+    "retry": "重試",
+    "refreshing": "更新中",
+    "refresh_failed": "重新整理失敗，目前顯示上次載入的資料。",
+    "unsupported": "目前的代理尚未提供用量資料，請升級到包含用量端點的版本。",
+    "disconnected": "連線到代理後即可查看用量。",
+    "empty_range": "此時間範圍內沒有用量。",
+    "empty_never": "尚無任何紀錄。",
+    "by_key": {
+      "title": "依用戶端金鑰的用量",
+      "recording_since": "自 {{since}} 起記錄 · 本地時間",
+      "local_time": "本地時間",
+      "daily": "按日彙總（UTC 日）"
+    },
+    "range": {
+      "label": "時間範圍",
+      "today": "今天",
+      "24h": "最近 24 小時",
+      "7d": "最近 7 天",
+      "all": "全部紀錄",
+      "start": "範圍起點",
+      "end": "範圍終點",
+      "window": "範圍："
+    },
+    "metric": {
+      "label": "指標",
+      "total": "全部權杖",
+      "output": "輸出權杖",
+      "requests": "請求數"
+    },
+    "provider": {
+      "label": "供應商",
+      "all": "全部"
+    },
+    "chart": {
+      "aria": "各用戶端金鑰的{{metric}}，{{range}}",
+      "legend": "顯示或隱藏用戶端金鑰",
+      "other": "其他金鑰",
+      "bucket_total": "合計"
+    },
+    "totals": {
+      "title": "所選範圍的合計",
+      "sorted_by": "依{{metric}}排序",
+      "key": "金鑰",
+      "failed": "失敗",
+      "share": "占比",
+      "created": "建立時間",
+      "revoked": "已撤銷",
+      "no_models": "此金鑰沒有依模型的明細。"
+    },
+    "live": {
+      "title": "即時流量",
+      "note": "代理在記憶體中保存的最近請求；代理重新啟動後清單會清空。",
+      "time": "時間",
+      "key": "金鑰",
+      "model": "模型",
+      "account": "帳號",
+      "status": "狀態",
+      "latency": "延遲",
+      "tokens": "輸入 / 輸出 / 快取讀取",
+      "stream": "串流",
+      "ok": "成功",
+      "failed": "失敗",
+      "ttft": "首個權杖耗時 {{value}} ms",
+      "all_keys": "全部金鑰",
+      "key_filter": "依金鑰篩選",
+      "pause": "暫停",
+      "resume": "繼續",
+      "empty": "代理啟動以來尚無請求。",
+      "load_failed": "無法載入即時流量",
+      "poll_failed": "即時更新失敗，正在重試。"
+    }
   },
   "client_keys": {
     "title": "用戶端金鑰",

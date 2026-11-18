@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "İstemci anahtarları",
+    "usage": "Kullanım",
     "dashboard": "Pano",
     "quick_start": "Hızlı Başlangıç",
     "ai_providers": "AI Sağlayıcıları",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "Verilen anahtarlar ve anahtar bazlı erişim",
+    "usage": "Anahtar başına token ve canlı trafik",
     "dashboard": "İşletim Özeti",
     "quick_start": "APIKEY.FUN Kurulumu",
     "ai_providers": "Yukarı Akış Model Yönlendirmesi",
@@ -1734,6 +1736,83 @@
     "weekday_thu": "Per",
     "weekday_fri": "Cum",
     "weekday_sat": "Cmt"
+  },
+  "usage": {
+    "title": "Kullanım",
+    "subtitle": "İstemci anahtarı başına token ve istekler ile canlı istek akışı.",
+    "loading": "Yükleniyor…",
+    "load_failed": "Kullanım yüklenemedi",
+    "retry": "Yeniden dene",
+    "refreshing": "güncelleniyor",
+    "refresh_failed": "Yenileme başarısız; son yüklenen veriler gösteriliyor.",
+    "unsupported": "Bu proxy henüz kullanım verisi sunmuyor. Kullanım uç noktalarını içeren bir sürüme güncelleyin.",
+    "disconnected": "Kullanımı görmek için bir proxyye bağlanın.",
+    "empty_range": "Bu aralıkta kullanım yok.",
+    "empty_never": "Henüz hiçbir şey kaydedilmedi.",
+    "by_key": {
+      "title": "İstemci anahtarına göre kullanım",
+      "recording_since": "{{since}} tarihinden beri kaydediliyor · yerel saat",
+      "local_time": "Yerel saat",
+      "daily": "günlük gruplar (UTC günleri)"
+    },
+    "range": {
+      "label": "Aralık",
+      "today": "Bugün",
+      "24h": "Son 24 saat",
+      "7d": "Son 7 gün",
+      "all": "Tüm kayıtlar",
+      "start": "Aralık başlangıcı",
+      "end": "Aralık sonu",
+      "window": "Aralık:"
+    },
+    "metric": {
+      "label": "Ölçü",
+      "total": "Tüm tokenlar",
+      "output": "Çıktı tokenları",
+      "requests": "İstekler"
+    },
+    "provider": {
+      "label": "Sağlayıcı",
+      "all": "Tümü"
+    },
+    "chart": {
+      "aria": "İstemci anahtarı başına {{metric}}, {{range}}",
+      "legend": "İstemci anahtarlarını göster veya gizle",
+      "other": "Diğer anahtarlar",
+      "bucket_total": "Toplam"
+    },
+    "totals": {
+      "title": "Seçili aralığın toplamları",
+      "sorted_by": "{{metric}} değerine göre sıralı",
+      "key": "Anahtar",
+      "failed": "Başarısız",
+      "share": "Pay",
+      "created": "Oluşturulma",
+      "revoked": "İptal edildi",
+      "no_models": "Bu anahtar için model dökümü yok."
+    },
+    "live": {
+      "title": "Canlı trafik",
+      "note": "Proxynin bellekte tuttuğu son istekler; proxy yeniden başlatıldığında liste boşalır.",
+      "time": "Saat",
+      "key": "Anahtar",
+      "model": "Model",
+      "account": "Hesap",
+      "status": "Durum",
+      "latency": "Gecikme",
+      "tokens": "Girdi / çıktı / önbellek okuma",
+      "stream": "Akış",
+      "ok": "Başarılı",
+      "failed": "Başarısız",
+      "ttft": "İlk token {{value}} ms sonra",
+      "all_keys": "Tüm anahtarlar",
+      "key_filter": "Anahtara göre filtrele",
+      "pause": "Duraklat",
+      "resume": "Sürdür",
+      "empty": "Proxy başladığından beri istek yok.",
+      "load_failed": "Canlı trafik yüklenemedi",
+      "poll_failed": "Canlı güncelleme başarısız; yeniden deneniyor."
+    }
   },
   "client_keys": {
     "title": "İstemci anahtarları",

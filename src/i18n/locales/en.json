@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "Client keys",
+    "usage": "Usage",
     "dashboard": "Dashboard",
     "quick_start": "Quick Start",
     "ai_providers": "AI Providers",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "Issued keys and per-key access",
+    "usage": "Tokens per key & live traffic",
     "dashboard": "Operations overview",
     "quick_start": "APIKEY.FUN setup",
     "ai_providers": "Upstream model routing",
@@ -1734,6 +1736,83 @@
     "weekday_thu": "Thu",
     "weekday_fri": "Fri",
     "weekday_sat": "Sat"
+  },
+  "usage": {
+    "title": "Usage",
+    "subtitle": "Tokens and requests per client key, and the live request stream.",
+    "loading": "Loading…",
+    "load_failed": "Could not load usage",
+    "retry": "Retry",
+    "refreshing": "updating",
+    "refresh_failed": "Refresh failed; showing the last loaded data.",
+    "unsupported": "This proxy does not report usage yet. Update it to a build with the usage endpoints.",
+    "disconnected": "Connect to a proxy to see usage.",
+    "empty_range": "No usage in this range.",
+    "empty_never": "Nothing recorded yet.",
+    "by_key": {
+      "title": "Usage by client key",
+      "recording_since": "Recording since {{since}} · local time",
+      "local_time": "Local time",
+      "daily": "daily buckets (UTC days)"
+    },
+    "range": {
+      "label": "Range",
+      "today": "Today",
+      "24h": "Last 24 h",
+      "7d": "Last 7 days",
+      "all": "All recorded",
+      "start": "Range start",
+      "end": "Range end",
+      "window": "Range:"
+    },
+    "metric": {
+      "label": "Metric",
+      "total": "All tokens",
+      "output": "Output tokens",
+      "requests": "Requests"
+    },
+    "provider": {
+      "label": "Provider",
+      "all": "All"
+    },
+    "chart": {
+      "aria": "{{metric}} per client key, {{range}}",
+      "legend": "Show or hide client keys",
+      "other": "Other keys",
+      "bucket_total": "Total"
+    },
+    "totals": {
+      "title": "Totals for the selected range",
+      "sorted_by": "Sorted by {{metric}}",
+      "key": "Key",
+      "failed": "Failed",
+      "share": "Share",
+      "created": "Created",
+      "revoked": "Revoked",
+      "no_models": "No per-model breakdown for this key."
+    },
+    "live": {
+      "title": "Live traffic",
+      "note": "The proxy's latest requests, held in memory; the list empties when the proxy restarts.",
+      "time": "Time",
+      "key": "Key",
+      "model": "Model",
+      "account": "Account",
+      "status": "Status",
+      "latency": "Latency",
+      "tokens": "In / out / cache read",
+      "stream": "Stream",
+      "ok": "OK",
+      "failed": "Failed",
+      "ttft": "First token after {{value}} ms",
+      "all_keys": "All keys",
+      "key_filter": "Filter by key",
+      "pause": "Pause",
+      "resume": "Resume",
+      "empty": "No requests since the proxy started.",
+      "load_failed": "Could not load live traffic",
+      "poll_failed": "Live update failed; retrying."
+    }
   },
   "client_keys": {
     "title": "Client keys",

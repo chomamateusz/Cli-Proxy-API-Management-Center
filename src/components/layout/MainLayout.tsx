@@ -30,6 +30,7 @@ import {
   IconSidebarRouting,
   IconSidebarStore,
   IconSidebarSystem,
+  IconSidebarUsage,
   IconChevronDown,
   IconKey,
 } from '@/components/ui/icons';
@@ -65,6 +66,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   quota: <IconSidebarQuota size={18} />,
   routing: <IconSidebarRouting size={18} />,
   clientKeys: <IconKey size={18} />,
+  usage: <IconSidebarUsage size={18} />,
   plugins: <IconSidebarPlugins size={18} />,
   pluginStore: <IconSidebarStore size={18} />,
   config: <IconSidebarConfig size={18} />,
@@ -661,6 +663,12 @@ export function MainLayout() {
           labelKey: 'nav.client_keys',
           metaKey: 'nav_meta.client_keys',
           icon: sidebarIcons.clientKeys,
+        },
+        {
+          path: '/usage',
+          labelKey: 'nav.usage',
+          metaKey: 'nav_meta.usage',
+          icon: sidebarIcons.usage,
         },
         ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
       ],

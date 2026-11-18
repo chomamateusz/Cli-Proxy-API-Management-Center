@@ -221,6 +221,67 @@ export const issuedKeyFixtures = [
   },
 ];
 
+export interface UsageKeyFixture {
+  name: string;
+  peakPerHour: number;
+  failureRate: number;
+  routes: { provider: 'claude' | 'codex'; model: string; authIndexes: string[]; weight: number }[];
+}
+
+export const USAGE_RECORDED_DAYS = 4;
+
+export const usageKeyFixtures: UsageKeyFixture[] = [
+  {
+    name: 'laptop',
+    peakPerHour: 42,
+    failureRate: 0.03,
+    routes: [
+      {
+        provider: 'claude',
+        model: 'claude-opus-5',
+        authIndexes: ['claude-1', 'claude-2'],
+        weight: 3,
+      },
+      { provider: 'codex', model: 'gpt-5.5-codex', authIndexes: ['codex-1', 'codex-2'], weight: 2 },
+    ],
+  },
+  {
+    name: 'ci',
+    peakPerHour: 30,
+    failureRate: 0.08,
+    routes: [
+      {
+        provider: 'claude',
+        model: 'claude-sonnet-5',
+        authIndexes: ['claude-3', 'claude-4'],
+        weight: 1,
+      },
+    ],
+  },
+  {
+    name: 'old-tablet',
+    peakPerHour: 9,
+    failureRate: 0.02,
+    routes: [
+      { provider: 'codex', model: 'gpt-5.5', authIndexes: ['codex-3'], weight: 1 },
+      {
+        provider: 'claude',
+        model: 'claude-fable-5',
+        authIndexes: ['claude-5', 'claude-99'],
+        weight: 1,
+      },
+    ],
+  },
+  {
+    name: 'unnamed-3f2a91c0',
+    peakPerHour: 4,
+    failureRate: 0.2,
+    routes: [
+      { provider: 'claude', model: 'claude-sonnet-5', authIndexes: ['claude-6'], weight: 1 },
+    ],
+  },
+];
+
 export const CREDENTIAL_MODELS: Record<string, string[]> = {
   claude: ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5'],
   codex: ['gpt-5.5', 'gpt-5.5-codex'],

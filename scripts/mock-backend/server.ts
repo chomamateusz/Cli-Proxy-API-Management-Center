@@ -13,6 +13,7 @@ import {
   type WindowFixture,
 } from './fixtures';
 import { createCredentialEndStore, type CredentialEndSeed } from './credentialEnds';
+import { createUsageMock } from './usage';
 
 const PORT = Number(process.env.MOCK_PORT ?? 8317);
 const HOST = process.env.MOCK_HOST ?? '127.0.0.1';
@@ -29,6 +30,10 @@ const issuedKeys = issuedKeyFixtures.map((key) => ({
   models: key.models,
   'excluded-models': [] as string[],
 }));
+
+const usage = createUsageMock(startedAt, () =>
+  Object.fromEntries(issuedKeys.map((key) => [key.name, key['created-at']]))
+);
 
 const iso = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
 const unix = (offsetMs: number) => Math.floor((startedAt + offsetMs) / 1000);
@@ -422,6 +427,14 @@ Bun.serve({
       return json(policies().find((policy) => policy.name === name) ?? policies()[0]);
     }
     if (path === '/routing/cooldown/reset' && method === 'POST') return json({ status: 'ok' });
+    if (path === '/usage/client-keys' && method === 'GET') {
+      const reply = usage.clientKeys(url.searchParams);
+      return json(reply.body, reply.status);
+    }
+    if (path === '/usage/recent-requests' && method === 'GET') {
+      const reply = usage.recentRequests(url.searchParams);
+      return json(reply.body, reply.status);
+    }
     if (path === '/observability/usage/api-keys') return json({});
     if (path === '/observability/logs') {
       const lines = logLines();

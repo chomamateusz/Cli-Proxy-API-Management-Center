@@ -101,6 +101,7 @@
   },
   "nav": {
     "client_keys": "客户端密钥",
+    "usage": "用量",
     "dashboard": "仪表盘",
     "quick_start": "快速开始",
     "ai_providers": "AI 提供商",
@@ -123,6 +124,7 @@
   },
   "nav_meta": {
     "client_keys": "已签发密钥与按密钥访问控制",
+    "usage": "按密钥统计的令牌与实时流量",
     "dashboard": "运行总览",
     "quick_start": "快速配置",
     "ai_providers": "上游模型路由",
@@ -1733,6 +1735,83 @@
     "weekday_thu": "四",
     "weekday_fri": "五",
     "weekday_sat": "六"
+  },
+  "usage": {
+    "title": "用量",
+    "subtitle": "按客户端密钥统计的令牌与请求，以及实时请求流。",
+    "loading": "加载中…",
+    "load_failed": "无法加载用量",
+    "retry": "重试",
+    "refreshing": "更新中",
+    "refresh_failed": "刷新失败，当前显示上次加载的数据。",
+    "unsupported": "当前代理尚未提供用量数据，请升级到包含用量接口的版本。",
+    "disconnected": "连接代理后即可查看用量。",
+    "empty_range": "该时间范围内没有用量。",
+    "empty_never": "尚无任何记录。",
+    "by_key": {
+      "title": "按客户端密钥的用量",
+      "recording_since": "自 {{since}} 起记录 · 本地时间",
+      "local_time": "本地时间",
+      "daily": "按天汇总（UTC 日）"
+    },
+    "range": {
+      "label": "时间范围",
+      "today": "今天",
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天",
+      "all": "全部记录",
+      "start": "范围起点",
+      "end": "范围终点",
+      "window": "范围："
+    },
+    "metric": {
+      "label": "指标",
+      "total": "全部令牌",
+      "output": "输出令牌",
+      "requests": "请求数"
+    },
+    "provider": {
+      "label": "提供商",
+      "all": "全部"
+    },
+    "chart": {
+      "aria": "各客户端密钥的{{metric}}，{{range}}",
+      "legend": "显示或隐藏客户端密钥",
+      "other": "其他密钥",
+      "bucket_total": "合计"
+    },
+    "totals": {
+      "title": "所选范围的合计",
+      "sorted_by": "按{{metric}}排序",
+      "key": "密钥",
+      "failed": "失败",
+      "share": "占比",
+      "created": "创建时间",
+      "revoked": "已吊销",
+      "no_models": "该密钥没有按模型的明细。"
+    },
+    "live": {
+      "title": "实时流量",
+      "note": "代理在内存中保存的最近请求；代理重启后列表会清空。",
+      "time": "时间",
+      "key": "密钥",
+      "model": "模型",
+      "account": "账号",
+      "status": "状态",
+      "latency": "延迟",
+      "tokens": "输入 / 输出 / 缓存读取",
+      "stream": "流式",
+      "ok": "成功",
+      "failed": "失败",
+      "ttft": "首个令牌用时 {{value}} ms",
+      "all_keys": "全部密钥",
+      "key_filter": "按密钥筛选",
+      "pause": "暂停",
+      "resume": "继续",
+      "empty": "代理启动以来还没有请求。",
+      "load_failed": "无法加载实时流量",
+      "poll_failed": "实时更新失败，正在重试。"
+    }
   },
   "client_keys": {
     "title": "客户端密钥",
