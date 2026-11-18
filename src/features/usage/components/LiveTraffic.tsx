@@ -118,7 +118,11 @@ export function LiveTraffic({
     }
     if (feed.rows.length === 0) return <EmptyState title={t('usage.live.empty')} />;
     return (
-      <Table className={styles.table} aria-label={t('usage.live.title')}>
+      <Table
+        className={styles.table}
+        scrollClassName={styles.scroll}
+        aria-label={t('usage.live.title')}
+      >
         <TableHeader>
           <TableRow>
             <TableHead>{t('usage.live.time')}</TableHead>
