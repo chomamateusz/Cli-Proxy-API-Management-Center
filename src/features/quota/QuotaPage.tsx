@@ -106,13 +106,12 @@ import {
   buildGroupPools,
   columnVariant,
   hasSlotMapping,
+  hasQuotaReadings,
   readQuotaSlots,
   slotColumnsFor,
   type PoolAccount,
   type QuotaSlotReading,
 } from './quotaSlots';
-import { hasClaudeUsageData } from './providers/claude/data';
-import type { ClaudeQuotaState } from '@/types';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
@@ -333,7 +332,7 @@ export function QuotaPage() {
     () =>
       sortMode === 'router'
         ? rankByRouter(
-            filteredEntries.map((entry) => ({
+            entries.map((entry) => ({
               item: entry,
               provider: entry.type,
               priority: entry.file.priority ?? 0,
@@ -346,7 +345,7 @@ export function QuotaPage() {
             sortNow
           )
         : null,
-    [filteredEntries, getQuota, routerFamily, routerSettings, sortMode, sortNow]
+    [entries, getQuota, routerFamily, routerSettings, sortMode, sortNow]
   );
   const routerPlacements = useMemo(
     () =>
@@ -360,9 +359,15 @@ export function QuotaPage() {
   const sortedEntries = useMemo(
     () =>
       routerRanking
-        ? routerRanking.map((ranked) => ranked.candidate.item)
+        ? filterEntriesBySearch(
+            filterEntriesByTab(
+              routerRanking.map((ranked) => ranked.candidate.item),
+              tab
+            ),
+            search
+          )
         : sortQuotaEntries(filteredEntries, sortMode, resolveNextRecovery),
-    [filteredEntries, routerRanking, sortMode, resolveNextRecovery]
+    [filteredEntries, routerRanking, sortMode, resolveNextRecovery, tab, search]
   );
 
   const { pageItems, currentPage, totalPages } = useMemo(
@@ -411,9 +416,9 @@ export function QuotaPage() {
     let loaded = 0;
     let attention = 0;
     entries.forEach((entry) => {
-      const status = quotaByType[entry.type][getQuotaCacheKey(entry.file)]?.status;
-      if (status === 'success') loaded += 1;
-      else if (status === 'error') attention += 1;
+      const quota = quotaByType[entry.type][getQuotaCacheKey(entry.file)];
+      if (hasQuotaReadings(entry.type, quota)) loaded += 1;
+      if (quota?.status === 'error') attention += 1;
     });
     return { loadedCount: loaded, attentionCount: attention };
   }, [entries, quotaByType]);
@@ -598,9 +603,7 @@ export function QuotaPage() {
     const language = i18n.resolvedLanguage;
     const slotsOf = (entry: QuotaFileEntry) => {
       const quota = getQuota(entry);
-      const loaded =
-        quota?.status === 'success' ||
-        (entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined));
+      const loaded = hasQuotaReadings(entry.type, quota);
       return {
         loaded,
         planType: (quota as { planType?: string | null } | undefined)?.planType ?? null,
@@ -629,8 +632,7 @@ export function QuotaPage() {
         {
           ...group,
           cards,
-          loadedCount: group.entries.filter((entry) => getQuota(entry)?.status === 'success')
-            .length,
+          loadedCount: group.entries.filter((entry) => slotsOf(entry).loaded).length,
           pools: accounts.length > 0 ? buildGroupPools(accounts, slotColumns) : null,
           hasClaude: group.entries.some((entry) => entry.type === 'claude'),
           weeklyReadings: accounts.map((account) => account.slots.weekly),

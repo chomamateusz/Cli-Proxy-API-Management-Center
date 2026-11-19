@@ -7,6 +7,7 @@
  * ============================================================ */
 
 .card {
+  min-width: 0;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -109,7 +110,10 @@
 }
 
 .orderBadge {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 35px);
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -167,6 +171,12 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  overflow: hidden;
+
+  > :last-child {
+    min-width: 0;
+    @include text-ellipsis;
+  }
 
   &:last-child {
     flex: 0 1 auto;

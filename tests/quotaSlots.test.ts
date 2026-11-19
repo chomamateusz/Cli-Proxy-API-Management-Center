@@ -7,6 +7,7 @@ import {
   buildGroupPools,
   claudePlanMultiplier,
   columnVariant,
+  hasQuotaReadings,
   readQuotaSlots,
   slotColumnsFor,
   type PoolAccount,
@@ -152,6 +153,35 @@ describe('slot mapping', () => {
     expect(slots?.extras.map((extra) => extra.id)).toEqual(['product-GrokBuild']);
   });
 
+  test('Claude dollar limits keep the remaining amount without a dollar cap', async () => {
+    await i18n.changeLanguage('en');
+    const slots = readQuotaSlots(
+      i18n.t.bind(i18n),
+      'claude',
+      {
+        ...claudeQuota([]),
+        dollarWindows: [
+          { key: 'balance', limitDollars: null, remainingDollars: 12.34, usedDollars: 5 },
+        ],
+      },
+      'en'
+    );
+    expect(slots?.extras[0].remainingPercent).toBeNull();
+    expect(slots?.extras[0].detail).toContain('$12.34');
+    expect(slots?.extras[0].detail).toContain('$5.00');
+  });
+
+  test.each(['loading', 'error'] as const)(
+    'retained Claude readings count as loaded during %s',
+    (status) => {
+      const quota = { ...claudeQuota([{ id: 'seven-day', used: 30 }]), status };
+      expect(hasQuotaReadings('claude', quota)).toBe(true);
+      expect(hasQuotaReadings('claude', { status })).toBe(false);
+      expect(hasQuotaReadings('codex', { status })).toBe(false);
+      expect(readQuotaSlots(t, 'claude', quota)?.slots.weekly?.remainingPercent).toBe(70);
+    }
+  );
+
   test('unmapped providers keep their own body', () => {
     for (const type of ['antigravity', 'devin', 'meta', 'plugin', 'kimi'] as const) {
       expect(readQuotaSlots(t, type, { status: 'success' })).toBeNull();
@@ -207,6 +237,25 @@ describe('pooled group bars', () => {
     expect(pools[0].remainingPercent).toBe(50);
   });
 
+  test('coverage totals count only providers that support each slot', () => {
+    const { pools } = buildGroupPools(
+      [
+        account('claude', 'plan_pro', {
+          weekly: reading('weekly', 60),
+          model: reading('model', 20),
+        }),
+        account('codex', null, { weekly: reading('weekly', 40) }),
+        account('xai', null, { weekly: reading('weekly', 80) }),
+      ],
+      ['five-hour', 'weekly', 'model']
+    );
+    expect(pools.map(({ slot, covered, total }) => [slot, covered, total])).toEqual([
+      ['five-hour', 0, 2],
+      ['weekly', 3, 3],
+      ['model', 1, 1],
+    ]);
+  });
+
   test('disabled, ended or unloaded accounts and missing windows are left out', () => {
     const { pools } = buildGroupPools(
       [
@@ -224,7 +273,7 @@ describe('pooled group bars', () => {
     ).toEqual([
       ['five-hour', 40, 1, 3],
       ['weekly', 40, 2, 3],
-      ['model', null, 0, 3],
+      ['model', null, 0, 0],
     ]);
     expect(pools[2].available).toBe(false);
   });
@@ -330,6 +379,40 @@ describe('aligned slot markup', () => {
     expect(markup.indexOf('class="slots"')).toBeLessThan(markup.indexOf('aria-expanded'));
   });
 
+  test('Codex shows the known reset count when credit details fail', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(
+        QuotaCard,
+        props('codex', {
+          ...codexQuota([]),
+          rateLimitResetCredits: [],
+          rateLimitResetCreditsAvailableCount: 3,
+          rateLimitResetCreditsError: 'details unavailable',
+        })
+      )
+    );
+    expect(markup).toContain('Resets (3)');
+    expect(markup).toContain('details unavailable');
+  });
+
+  test('Codex uses listed resets when details are present', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(
+        QuotaCard,
+        props('codex', {
+          ...codexQuota([]),
+          rateLimitResetCredits: [
+            { status: 'available', expiresAt: new Date(NOW + DAY).toISOString() },
+          ],
+          rateLimitResetCreditsAvailableCount: 3,
+        })
+      )
+    );
+    expect(markup).toContain('Resets (1)');
+  });
+
   test('an unloaded card still reserves every slot', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(createElement(QuotaCard, props('claude', undefined)));
@@ -354,6 +437,60 @@ describe('aligned slot markup', () => {
     expect(markup).toContain('All others');
     expect(markup).toContain('Use “Refresh all credentials” to read every account.');
     expect(markup).toContain('Routing currently uses round-robin');
+  });
+
+  test('pool coverage, not the success count, controls the empty prompt', async () => {
+    await i18n.changeLanguage('en');
+    const groupProps = {
+      kind: 'all' as const,
+      type: null,
+      accountCount: 1,
+      resolvedTheme: 'dark' as const,
+      routerStrategy: null,
+      children: null,
+    };
+    const covered = renderToStaticMarkup(
+      createElement(QuotaCardGroup, {
+        ...groupProps,
+        loadedCount: 0,
+        pools: buildGroupPools(
+          [account('claude', 'plan_pro', { weekly: reading('weekly', 70) })],
+          ['weekly']
+        ),
+      })
+    );
+    expect(covered).toContain('Weekly: 70% left across 1 of 1 accounts');
+    expect(covered).not.toContain('No quota loaded yet');
+    const uncovered = renderToStaticMarkup(
+      createElement(QuotaCardGroup, {
+        ...groupProps,
+        loadedCount: 1,
+        pools: buildGroupPools([account('claude', 'plan_pro', {}, false)], ['weekly']),
+      })
+    );
+    expect(uncovered).toContain('No quota loaded yet');
+  });
+
+  test('unsupported pools have no account coverage line', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(QuotaCardGroup, {
+        kind: 'provider',
+        type: 'codex',
+        accountCount: 1,
+        loadedCount: 1,
+        pools: buildGroupPools(
+          [account('codex', null, { weekly: reading('weekly', 50) })],
+          ['weekly', 'model']
+        ),
+        resolvedTheme: 'dark',
+        routerStrategy: null,
+        children: null,
+      })
+    );
+    expect(markup).toContain('Weekly Fable: no account in this group has this limit');
+    expect(markup).not.toContain('0 of 0 accounts');
+    expect(markup).not.toContain('0 of 1 accounts');
   });
 
   test('a weighted pool says so in visible text', async () => {

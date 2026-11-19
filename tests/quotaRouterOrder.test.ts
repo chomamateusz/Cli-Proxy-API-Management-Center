@@ -236,6 +236,30 @@ describe('use-or-lose router order', () => {
     ]);
   });
 
+  test('searching or selecting a tab after ranking preserves positions and Next', () => {
+    const ranked = rankByRouter(
+      [
+        candidate('claude-first', readings([0, DAY])),
+        candidate('claude-second', readings([0, 3 * DAY])),
+        candidate('codex-first', readings([0, DAY]), { provider: 'codex' }),
+        candidate('codex-second', readings([0, 3 * DAY]), { provider: 'codex' }),
+      ],
+      'all',
+      USE_OR_LOSE,
+      NOW
+    );
+    for (const provider of ['claude', 'codex'] as const) {
+      const tab = ranked.filter((entry) => entry.candidate.provider === provider);
+      expect(tab.map((entry) => entry.placement)).toMatchObject([{ position: 1 }, { position: 2 }]);
+      const search = tab.filter((entry) => entry.candidate.item.includes('second'));
+      expect(search).toHaveLength(1);
+      expect(search[0].placement).toMatchObject({ position: 2 });
+      expect(search[0].placement).toEqual(
+        ranked.find((entry) => entry.candidate.item === `${provider}-second`)?.placement
+      );
+    }
+  });
+
   test('providers without a weekly sample kind keep input order', () => {
     const list = ['c', 'a', 'b'].map((item) =>
       candidate(item, null, { provider: 'kimi' as QuotaProviderType })

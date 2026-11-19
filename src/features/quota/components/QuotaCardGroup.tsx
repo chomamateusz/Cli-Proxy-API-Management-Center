@@ -104,7 +104,7 @@ export function QuotaCardGroup({
           </p>
         )}
         {showPools &&
-          (loadedCount === 0 ? (
+          (!pools.pools.some((pool) => pool.covered > 0) ? (
             <p className={styles.empty}>
               {t('quota_groups.nothing_loaded', {
                 action: t('quota_management.refresh_all_credentials'),
@@ -121,12 +121,19 @@ export function QuotaCardGroup({
                   variant={pool.variant}
                   state={pool.available && pool.covered > 0 ? 'live' : 'off'}
                   remainingPercent={pool.remainingPercent}
-                  note={[
-                    t('quota_groups.pool_covers', { covered: pool.covered, total: pool.total }),
-                    pools.weighted ? t('quota_groups.weighted') : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  note={
+                    pool.total > 0
+                      ? [
+                          t('quota_groups.pool_covers', {
+                            covered: pool.covered,
+                            total: pool.total,
+                          }),
+                          pools.weighted ? t('quota_groups.weighted') : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : undefined
+                  }
                   noteTitle={pools.weighted ? t('quota_groups.weighted_title') : undefined}
                   classes={quotaClasses}
                   index={index}

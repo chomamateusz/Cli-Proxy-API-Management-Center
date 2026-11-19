@@ -28,7 +28,7 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { ClaudeResetGrantAction } from '../providers/claude/ClaudeResetGrantAction';
-import type { ResetGrantLine } from '../providers/claude/resetGrantAvailability';
+import { usableGrantCount, type ResetGrantLine } from '../providers/claude/resetGrantAvailability';
 import { hasClaudeUsageData } from '../providers/claude/data';
 import { getCodexPlanLabel } from '../providers/codex/planLabel';
 import { formatUsdFromCents } from '../providers/xai/amounts';
@@ -79,7 +79,6 @@ export type QuotaCardProps = {
   endActions: CredentialEndActions;
   nowMs?: number;
   slotColumns?: readonly QuotaSlotId[];
-  /** Column label per slot, so a disabled slot reads like its column. */
   slotVariants?: Partial<Record<QuotaSlotId, QuotaSlotVariant>>;
   routerPlacement?: RouterPlacement | null;
 };
@@ -230,14 +229,6 @@ function ClaudeGrantRows({
     </>
   );
 }
-
-const UNUSABLE_GRANT_BLOCKS = new Set(['grant_expired', 'not_started', 'exhausted']);
-
-const usableGrantCount = (lines: readonly ResetGrantLine[]) =>
-  lines.filter(
-    (line) =>
-      (line.resetsLeft ?? 0) > 0 && !(line.block !== null && UNUSABLE_GRANT_BLOCKS.has(line.block))
-  ).length;
 
 export function QuotaCard(props: QuotaCardProps) {
   const {
@@ -507,6 +498,10 @@ export function QuotaCard(props: QuotaCardProps) {
     const codexCredits = (codexQuota?.rateLimitResetCredits ?? []).filter(
       (credit) => credit.status === 'available' || credit.status === undefined
     );
+    const codexCreditCount =
+      codexCredits.length > 0
+        ? codexCredits.length
+        : (codexQuota?.rateLimitResetCreditsAvailableCount ?? 0);
     const extraUsage = claudeQuota && hasReadings ? (claudeQuota.extraUsage ?? null) : null;
     const formatMinor = (value: number | null, currency: string | null) => {
       if (value === null) return '--';
@@ -614,19 +609,21 @@ export function QuotaCard(props: QuotaCardProps) {
         {endControl}
 
         {(showClaudeReset && claudeReset.lines.length > 0) ||
-        codexCredits.length > 0 ||
+        codexCreditCount > 0 ||
         extraUsage ||
         extras.length > 0 ? (
           <div className={styles.sections}>
             {showClaudeReset && claudeReset.lines.length > 0 && (
               <QuotaCardSection
-                title={t('quota_cards.resets', { count: usableGrantCount(claudeReset.lines) })}
+                title={t('quota_cards.resets', {
+                  count: usableGrantCount(claudeReset.lines, nowMs),
+                })}
               >
                 <ClaudeGrantRows lines={claudeReset.lines} nowMs={nowMs} onUse={claudeReset.use} />
               </QuotaCardSection>
             )}
-            {codexCredits.length > 0 && (
-              <QuotaCardSection title={t('quota_cards.resets', { count: codexCredits.length })}>
+            {codexCreditCount > 0 && (
+              <QuotaCardSection title={t('quota_cards.resets', { count: codexCreditCount })}>
                 {codexCredits.map((credit, index) => {
                   const expiresAtMs = parseIsoToMs(credit.expiresAt);
                   const display = buildResetDisplay(
@@ -694,7 +691,6 @@ export function QuotaCard(props: QuotaCardProps) {
     );
   }
 
-  // Claude banked resets join the plan chip row; their expiry list follows it.
   const claudePlanItems = showClaudeReset ? (
     <span className={quotaClasses.codexPlanItem}>
       <span className={quotaClasses.codexPlanLabel}>{t('claude_reset.remaining')}</span>

@@ -4,6 +4,14 @@ import { formatQuotaResetTime } from '@/utils/quota';
 import { formatXaiOnDemandAmount, formatXaiRemainingAmount } from './providers/xai/amounts';
 import { XAI_WEEKLY_ROW_ID } from './resetSchedule';
 import type { QuotaProviderType } from './providers/types';
+import { hasClaudeUsageData } from './providers/claude/data';
+
+export const hasQuotaReadings = (
+  type: QuotaProviderType,
+  quota: { status: string } | undefined
+): boolean =>
+  quota?.status === 'success' ||
+  (type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined));
 
 export const QUOTA_SLOT_IDS = ['five-hour', 'weekly', 'model'] as const;
 export type QuotaSlotId = (typeof QUOTA_SLOT_IDS)[number];
@@ -36,7 +44,6 @@ export const slotLabelKey = (variant: QuotaSlotVariant): string => SLOT_LABEL_KE
 export interface QuotaSlotReading {
   slot: QuotaSlotId;
   variant: QuotaSlotVariant;
-  /** The provider body's row id, so the soonest-reset emphasis matches the other views. */
   rowId: string;
   remainingPercent: number | null;
   resetAtMs: number | null;
@@ -132,12 +139,13 @@ function claudeSlots(t: TFunction, quota: ClaudeQuotaState, locale?: string): Qu
       remainingPercent: limit && left !== null ? clampPercent((left / limit) * 100) : null,
       resetAtMs: null,
       resetLabel: cleanResetLabel(formatQuotaResetTime(balance.resetsAt ?? undefined)),
-      detail: String(
+      detail: [
+        t('claude_quota.dollar_balance_remaining', { amount: formatMoney(left, locale) }),
         t('claude_quota.usage_spent_limit', {
           spent: formatMoney(finite(balance.usedDollars), locale),
           limit: formatMoney(limit, locale),
-        })
-      ),
+        }),
+      ].join(' · '),
     });
   });
   return { slots, extras };
@@ -235,7 +243,6 @@ function xaiSlots(t: TFunction, quota: XaiQuotaState): QuotaCardSlots {
   return { slots, extras };
 }
 
-/** Null means the provider has no slot mapping and keeps its own quota body. */
 export function readQuotaSlots(
   t: TFunction,
   type: QuotaProviderType,
@@ -281,7 +288,6 @@ export const claudePlanMultiplier = (planType: string | null | undefined): numbe
 
 export interface PoolAccount {
   type: QuotaProviderType;
-  /** Enabled, not ended and loaded: only these count toward a pool. */
   included: boolean;
   planType: string | null;
   slots: Partial<Record<QuotaSlotId, QuotaSlotReading>>;
@@ -331,7 +337,7 @@ export function buildGroupPools(
             ) / totalWeight
           : null,
       covered: covering.length,
-      total: accounts.length,
+      total: accounts.filter((account) => PROVIDER_SLOTS[account.type]?.includes(slot)).length,
       available: readings.some(Boolean),
     };
   });
