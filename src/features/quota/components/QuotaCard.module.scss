@@ -110,10 +110,7 @@
 }
 
 .orderBadge {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: calc(100% - 35px);
-  overflow: hidden;
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 5px;

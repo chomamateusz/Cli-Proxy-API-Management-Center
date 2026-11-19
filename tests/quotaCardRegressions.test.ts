@@ -80,12 +80,12 @@ describe('Cards page wiring', () => {
     );
   });
 
-  test('Cards groups allow 270px tracks and constrain identity and meta content', async () => {
+  test('Cards groups allow 256px tracks; the name shrinks, the order badge does not', async () => {
     const group = await source('components/QuotaCardGroup.module.scss');
-    expect(group).toContain('repeat(auto-fill, minmax(min(100%, 270px), 1fr))');
+    expect(group).toContain('repeat(auto-fill, minmax(min(100%, 256px), 1fr))');
     const card = await source('components/QuotaCard.module.scss');
     expect(card).toMatch(/\.fileName\s*\{[^}]*min-width: 0;[^}]*@include text-ellipsis;/s);
-    expect(card).toMatch(/\.orderBadge\s*\{[^}]*min-width: 0;[^}]*overflow: hidden;/s);
+    expect(card).toMatch(/\.orderBadge\s*\{\s*flex: none;/s);
     expect(card).toMatch(/\.metaItem\s*\{[^}]*overflow: hidden;/s);
     expect(card).toMatch(/> :last-child\s*\{[^}]*min-width: 0;[^}]*@include text-ellipsis;/s);
   });
