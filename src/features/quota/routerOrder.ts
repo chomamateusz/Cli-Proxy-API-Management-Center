@@ -3,7 +3,9 @@
 import type { AuthFileItem, ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { summarizeCooldowns } from '@/features/authFiles/cooldowns';
 import { isRecord } from '@/utils/helpers';
+import type { QuotaTabId } from './constants';
 import { readCredentialEnd } from './credentialEnd';
+import { filterEntriesBySearch, filterEntriesByTab, type QuotaFileEntry } from './logic';
 import type { QuotaProviderType } from './providers/types';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -339,4 +341,36 @@ export function rankByRouter<T>(
       nowMs
     )
   );
+}
+
+export interface RouterView {
+  ranked: RankedCandidate<QuotaFileEntry>[];
+  visible: QuotaFileEntry[];
+}
+
+export function buildRouterView(
+  entries: readonly QuotaFileEntry[],
+  describe: (entry: QuotaFileEntry) => Omit<RouterCandidate<QuotaFileEntry>, 'item' | 'provider'>,
+  tab: QuotaTabId,
+  search: string,
+  family: RouterFamily,
+  settings: RouterSettings,
+  nowMs: number
+): RouterView {
+  const ranked = rankByRouter(
+    entries.map((entry) => ({ item: entry, provider: entry.type, ...describe(entry) })),
+    family,
+    settings,
+    nowMs
+  );
+  return {
+    ranked,
+    visible: filterEntriesBySearch(
+      filterEntriesByTab(
+        ranked.map((entry) => entry.candidate.item),
+        tab
+      ),
+      search
+    ),
+  };
 }

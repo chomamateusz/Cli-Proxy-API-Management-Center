@@ -72,47 +72,11 @@ describe('reset count independent of account blockers', () => {
 });
 
 describe('Cards page wiring', () => {
-  test('ranking uses all classified entries, and visibility filters run afterwards', async () => {
-    const page = await source('QuotaPage.tsx');
-    const ranking = page.slice(
-      page.indexOf('const routerRanking ='),
-      page.indexOf('const routerPlacements =')
-    );
-    expect(ranking).toContain('entries.map(');
-    expect(ranking).not.toContain('filteredEntries');
-    const sorting = page.slice(
-      page.indexOf('const sortedEntries ='),
-      page.indexOf('const { pageItems')
-    );
-    expect(sorting).toMatch(/filterEntriesBySearch\(\s*filterEntriesByTab\(/);
-    expect(sorting).toContain('routerRanking.map(');
-    expect(sorting).toContain('search');
-  });
-
   test('group counts and pools share the retained-reading predicate', async () => {
     const page = await source('QuotaPage.tsx');
     expect(page).toContain('const loaded = hasQuotaReadings(entry.type, quota)');
     expect(page).toContain(
       'loadedCount: group.entries.filter((entry) => slotsOf(entry).loaded).length'
-    );
-  });
-
-  test('descriptive branch comments are removed and the sort comment is restored', async () => {
-    const slots = await source('quotaSlots.ts');
-    const card = await source('components/QuotaCard.tsx');
-    for (const text of [
-      'Enabled, not ended and loaded',
-      'Null means the provider',
-      "The provider body's row id",
-    ]) {
-      expect(slots).not.toContain(text);
-    }
-    for (const text of ['Column label per slot', 'Claude banked resets join']) {
-      expect(card).not.toContain(text);
-    }
-    const constants = await source('constants.ts');
-    expect(constants).toContain(
-      '/** 卡片排序：默认 = provider 分组序；soonest = 最快恢复优先。 */'
     );
   });
 

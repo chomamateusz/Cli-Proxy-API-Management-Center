@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  buildRouterView,
   DEFAULT_ROUTER_SETTINGS,
   normalizeRouterStrategy,
   rankByRouter,
@@ -11,6 +12,8 @@ import {
   type RouterReadings,
   type RouterSettings,
 } from '@/features/quota/routerOrder';
+import type { QuotaTabId } from '@/features/quota/constants';
+import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { QuotaProviderType } from '@/features/quota/providers/types';
 
 const NOW = Date.UTC(2026, 10, 19, 12);
@@ -236,28 +239,46 @@ describe('use-or-lose router order', () => {
     ]);
   });
 
-  test('searching or selecting a tab after ranking preserves positions and Next', () => {
-    const ranked = rankByRouter(
-      [
-        candidate('claude-first', readings([0, DAY])),
-        candidate('claude-second', readings([0, 3 * DAY])),
-        candidate('codex-first', readings([0, DAY]), { provider: 'codex' }),
-        candidate('codex-second', readings([0, 3 * DAY]), { provider: 'codex' }),
-      ],
-      'all',
-      USE_OR_LOSE,
-      NOW
-    );
-    for (const provider of ['claude', 'codex'] as const) {
-      const tab = ranked.filter((entry) => entry.candidate.provider === provider);
-      expect(tab.map((entry) => entry.placement)).toMatchObject([{ position: 1 }, { position: 2 }]);
-      const search = tab.filter((entry) => entry.candidate.item.includes('second'));
-      expect(search).toHaveLength(1);
-      expect(search[0].placement).toMatchObject({ position: 2 });
-      expect(search[0].placement).toEqual(
-        ranked.find((entry) => entry.candidate.item === `${provider}-second`)?.placement
+  test('search and tab narrow what is shown without re-ranking', () => {
+    const entry = (name: string, type: QuotaProviderType): QuotaFileEntry => ({
+      file: { name, type },
+      type,
+    });
+    const entries = [
+      entry('claude-first.json', 'claude'),
+      entry('claude-second.json', 'claude'),
+      entry('codex-first.json', 'codex'),
+      entry('codex-second.json', 'codex'),
+    ];
+    const view = (tab: QuotaTabId, search: string) =>
+      buildRouterView(
+        entries,
+        ({ file }) => ({
+          priority: 0,
+          endsAtMs: null,
+          readings: readings([0, file.name.includes('second') ? 3 * DAY : DAY]),
+          outOfRotation: null,
+        }),
+        tab,
+        search,
+        'all',
+        USE_OR_LOSE,
+        NOW
       );
-    }
+    const placementOf = (name: string, ranked: ReturnType<typeof view>['ranked']) =>
+      ranked.find((item) => item.candidate.item.file.name === name)?.placement;
+
+    const searched = view('all', 'claude-second');
+    expect(searched.visible.map((item) => item.file.name)).toEqual(['claude-second.json']);
+    expect(placementOf('claude-second.json', searched.ranked)).toMatchObject({ position: 2 });
+
+    const tabbed = view('codex', '');
+    expect(tabbed.visible.map((item) => item.file.name)).toEqual([
+      'codex-first.json',
+      'codex-second.json',
+    ]);
+    expect(placementOf('codex-second.json', tabbed.ranked)).toMatchObject({ position: 2 });
+    expect(placementOf('claude-first.json', tabbed.ranked)).toMatchObject({ position: 1 });
   });
 
   test('providers without a weekly sample kind keep input order', () => {

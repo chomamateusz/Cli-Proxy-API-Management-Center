@@ -89,7 +89,7 @@ import {
   writeQuotaUiState,
 } from './uiState';
 import {
-  rankByRouter,
+  buildRouterView,
   readRouterSettings,
   routerOutOfRotation,
   routerReadingsFor,
@@ -328,46 +328,44 @@ export function QuotaPage() {
     [getQuota, sortNow]
   );
   const routerSettings = useMemo(() => readRouterSettings(rawConfig), [rawConfig]);
-  const routerRanking = useMemo(
+  const routerView = useMemo(
     () =>
       sortMode === 'router'
-        ? rankByRouter(
-            entries.map((entry) => ({
-              item: entry,
-              provider: entry.type,
+        ? buildRouterView(
+            entries,
+            (entry) => ({
               priority: entry.file.priority ?? 0,
               endsAtMs: readCredentialEnd(entry.file, sortNow).endsAtMs,
               readings: routerReadingsFor(entry.type, getQuota(entry), sortNow),
               outOfRotation: routerOutOfRotation(entry.file, sortNow),
-            })),
+            }),
+            tab,
+            search,
             routerFamily,
             routerSettings,
             sortNow
           )
         : null,
-    [entries, getQuota, routerFamily, routerSettings, sortMode, sortNow]
+    [entries, getQuota, routerFamily, routerSettings, search, sortMode, sortNow, tab]
   );
   const routerPlacements = useMemo(
     () =>
       new Map<string, RouterPlacement>(
-        (routerRanking ?? []).map((ranked) => [entryKey(ranked.candidate.item), ranked.placement])
+        (routerView?.ranked ?? []).map((ranked) => [
+          entryKey(ranked.candidate.item),
+          ranked.placement,
+        ])
       ),
-    [routerRanking]
+    [routerView]
   );
 
   // 排序在分页之前：否则「最快恢复」只在当前页内成立。
   const sortedEntries = useMemo(
     () =>
-      routerRanking
-        ? filterEntriesBySearch(
-            filterEntriesByTab(
-              routerRanking.map((ranked) => ranked.candidate.item),
-              tab
-            ),
-            search
-          )
+      routerView
+        ? routerView.visible
         : sortQuotaEntries(filteredEntries, sortMode, resolveNextRecovery),
-    [filteredEntries, routerRanking, sortMode, resolveNextRecovery, tab, search]
+    [filteredEntries, routerView, sortMode, resolveNextRecovery]
   );
 
   const { pageItems, currentPage, totalPages } = useMemo(
