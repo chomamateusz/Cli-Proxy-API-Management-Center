@@ -7,7 +7,6 @@ import {
   claudeFixtures,
   codexFixtures,
   issuedKeyFixtures,
-  kimiFixture,
   xaiFixture,
   type EndFixture,
   type WindowFixture,
@@ -38,7 +37,8 @@ const usage = createUsageMock(startedAt, () =>
 const iso = (offsetMs: number) => new Date(startedAt + offsetMs).toISOString();
 const unix = (offsetMs: number) => Math.floor((startedAt + offsetMs) / 1000);
 const claudeFileName = (email: string) => `claude-${email}.json`;
-const codexFileName = (accountId: string, email: string) => `codex-${accountId}-${email}-pro.json`;
+const codexFileName = (codex: (typeof codexFixtures)[number]) =>
+  `codex-${codex.accountId}-${codex.email}-${codex.plan}.json`;
 const endAtMs = (end: EndFixture | undefined) =>
   end && 'inMs' in end ? startedAt + end.inMs : null;
 const credentialEnds = createCredentialEndStore(
@@ -54,7 +54,7 @@ const credentialEnds = createCredentialEndStore(
       warnings: [],
     })),
     ...codexFixtures.map((fixture): CredentialEndSeed => ({
-      name: codexFileName(fixture.accountId, fixture.email),
+      name: codexFileName(fixture),
       provider: 'codex',
       endsAtMs: endAtMs(fixture.end),
       source: fixture.end?.source ?? null,
@@ -135,6 +135,18 @@ const entry = (provider: string, name: string, authIndex: string, email: string)
   recent_requests: recentRequests(Array.from({ length: 20 }, () => 0)),
 });
 
+const cooldowns = (seconds: number | undefined) =>
+  seconds === undefined
+    ? []
+    : [
+        {
+          scope: 'credential',
+          reason: 'quota',
+          retry_at: new Date(Date.now() + seconds * 1000).toISOString(),
+          remaining_seconds: seconds,
+        },
+      ];
+
 const credentials = () => [
   ...claudeFixtures.map((fixture) => ({
     ...entry('claude', claudeFileName(fixture.email), fixture.authIndex, fixture.email),
@@ -142,22 +154,17 @@ const credentials = () => [
     ...credentialEnds.fields(claudeFileName(fixture.email), Date.now()),
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
+    cooldowns: cooldowns(fixture.coolingForSeconds),
   })),
   ...codexFixtures.map((fixture) => ({
-    ...entry(
-      'codex',
-      codexFileName(fixture.accountId, fixture.email),
-      fixture.authIndex,
-      fixture.email
-    ),
+    ...entry('codex', codexFileName(fixture), fixture.authIndex, fixture.email),
     ...(fixture.note ? { note: fixture.note } : {}),
-    ...credentialEnds.fields(codexFileName(fixture.accountId, fixture.email), Date.now()),
+    ...credentialEnds.fields(codexFileName(fixture), Date.now()),
     chatgpt_account_id: fixture.accountId,
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
   })),
   entry('xai', `xai-${xaiFixture.email}.json`, xaiFixture.authIndex, xaiFixture.email),
-  entry('kimi', `kimi-${kimiFixture.email}.json`, kimiFixture.authIndex, kimiFixture.email),
 ];
 
 const upstream = (status: number, body: unknown) => ({
@@ -180,9 +187,17 @@ const codexWindow = ({ used, resetInMs }: WindowFixture, seconds: number) => ({
 const answerClaude = (claude: (typeof claudeFixtures)[number], url: string) => {
   if (url.startsWith('https://api.anthropic.com/api/oauth/usage')) {
     return upstream(200, {
-      five_hour: claudeWindow(claude.fiveHour),
+      ...(claude.fiveHour ? { five_hour: claudeWindow(claude.fiveHour) } : {}),
       seven_day: claudeWindow(claude.sevenDay),
-      seven_day_opus: claudeWindow(claude.opus),
+      ...(claude.opus ? { seven_day_opus: claudeWindow(claude.opus) } : {}),
+      extra_usage: {
+        is_enabled: false,
+        monthly_limit: claude.extraUsage.monthlyLimitMinor,
+        used_credits: claude.extraUsage.monthlyLimitMinor === null ? null : 0,
+        utilization: claude.extraUsage.monthlyLimitMinor === null ? null : 0,
+        currency: 'EUR',
+        disabled_reason: claude.extraUsage.disabledReason,
+      },
       limits: [
         {
           kind: 'weekly_scoped',
@@ -220,6 +235,7 @@ const answerClaude = (claude: (typeof claudeFixtures)[number], url: string) => {
       organization: {
         organization_type: 'claude_max',
         subscription_status: 'active',
+        rate_limit_tier: `default_claude_max_${claude.plan === 'max5' ? '5x' : '20x'}`,
         uuid: `00000000-0000-4000-8000-00000000000${claude.authIndex.slice(-1)}`,
       },
     });
@@ -232,14 +248,13 @@ const answerCodex = (codex: (typeof codexFixtures)[number], url: string) => {
   const remainingResets = Math.max(0, codex.manualResets - consumed);
   if (url === 'https://chatgpt.com/backend-api/wham/usage') {
     const weekly = consumed > 0 ? { used: 0, resetInMs: 7 * 24 * 60 * 60 * 1000 } : codex.weekly;
-    const fiveHour = consumed > 0 ? { used: 0, resetInMs: 5 * 60 * 60 * 1000 } : codex.fiveHour;
     return upstream(200, {
-      plan_type: 'pro',
+      plan_type: codex.plan,
       rate_limit: {
         allowed: weekly.used < 100,
         limit_reached: weekly.used >= 100,
-        primary_window: codexWindow(fiveHour, 18000),
-        secondary_window: codexWindow(weekly, 604800),
+        primary_window: codexWindow(weekly, 604800),
+        secondary_window: null,
       },
       code_review_rate_limit: null,
       additional_rate_limits: [],
@@ -280,6 +295,7 @@ const answerXai = (url: string) => {
       config: {
         currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY', start: weekStart, end: weekEnd },
         creditUsagePercent: xaiFixture.weeklyUsed,
+        productUsage: [{ product: 'GrokBuild', usagePercent: xaiFixture.weeklyUsed }],
         billingPeriodStart: weekStart,
         billingPeriodEnd: weekEnd,
         onDemandCap: { val: 0 },
@@ -289,8 +305,8 @@ const answerXai = (url: string) => {
   if (url.startsWith('https://cli-chat-proxy.grok.com/v1/billing')) {
     return upstream(200, {
       config: {
-        monthlyLimit: { val: 3000 },
-        used: { val: 1140 },
+        monthlyLimit: { val: 0 },
+        used: { val: 0 },
         onDemandCap: { val: 0 },
         billingPeriodStart: iso(-10 * 24 * 60 * 60 * 1000),
         billingPeriodEnd: iso(20 * 24 * 60 * 60 * 1000),
@@ -310,17 +326,6 @@ const answerApiCall = (request: { authIndex?: string; auth_index?: string; url?:
     (codex && answerCodex(codex, url)) ||
     (authIndex === xaiFixture.authIndex ? answerXai(url) : null);
   if (answer) return answer;
-  if (authIndex === kimiFixture.authIndex && url.includes('/coding/v1/usages')) {
-    return upstream(200, {
-      usage: {
-        used: '24',
-        limit: '100',
-        remaining: '76',
-        resetTime: iso(kimiFixture.weeklyResetInMs),
-      },
-      limits: [],
-    });
-  }
   return upstream(404, { error: { message: `mock backend has no fixture for ${url}` } });
 };
 

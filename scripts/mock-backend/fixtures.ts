@@ -1,5 +1,5 @@
-// Every email uses the reserved `.test` TLD and every token is a placeholder; nothing here is a
-// real account. Times are offsets from server start so countdowns stay realistic.
+// Every email is an invented address under example.com and every token is a placeholder; nothing
+// here is a real account. Times are offsets from server start so countdowns stay realistic.
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -20,6 +20,8 @@ export interface ClaudeGrantFixture {
 const FULL_RESET = 'One full limit reset (November 2026)';
 const FABLE_RESET =
   'New model launch: one Fable reset for Max, Team Premium and Enterprise Premium';
+const TENURE_12_RESET = "New model launch: one more Fable reset at 12 months' tenure";
+const TENURE_6_RESET = "New model launch: one more Fable reset at 6 months' tenure";
 
 export type EndSourceFixture = 'manual' | 'claude-anniversary' | 'codex-api' | 'plan-ended';
 
@@ -32,21 +34,29 @@ export interface WarningFixture {
   untilInMs?: number;
 }
 
+export interface ExtraUsageFixture {
+  monthlyLimitMinor: number | null;
+  disabledReason: string | null;
+}
+
 export interface ClaudeFixture {
   email: string;
   note?: string;
   authIndex: string;
+  plan: 'max5' | 'max20';
   sevenDay: WindowFixture;
   fable: WindowFixture;
-  fiveHour: WindowFixture;
-  opus: WindowFixture;
+  fiveHour: WindowFixture | null;
+  opus?: WindowFixture;
   grants: ClaudeGrantFixture[];
+  extraUsage: ExtraUsageFixture;
   /** Requests per ten-minute bucket, newest last. */
   traffic: number[];
   end?: EndFixture;
   /** Offset of the Stripe subscription_created_at; absent means no profile sample yet. */
   subscribedInMs?: number;
   planActive?: boolean;
+  coolingForSeconds?: number;
 }
 
 export interface CodexFixture {
@@ -54,8 +64,8 @@ export interface CodexFixture {
   email: string;
   note?: string;
   authIndex: string;
+  plan: 'pro' | 'prolite';
   weekly: WindowFixture;
-  fiveHour: WindowFixture;
   renewsInMs: number;
   manualResets: number;
   manualResetExpiresInMs: number;
@@ -68,97 +78,113 @@ const quiet = () => Array.from({ length: 20 }, () => 0);
 const busy = (peak: number) =>
   Array.from({ length: 20 }, (_, index) => (index > 13 ? peak - ((index * 3) % peak) : 0));
 
+const EXTRA_USAGE_OFF: ExtraUsageFixture = { monthlyLimitMinor: null, disabledReason: null };
+
 export const claudeFixtures: ClaudeFixture[] = [
   {
-    email: 'mary-jane@studio.test',
+    email: 'studio-one@example.com',
     note: 'studio',
     authIndex: 'claude-1',
-    sevenDay: { used: 45, resetInMs: 19 * HOUR_MS + 12 * MINUTE_MS },
-    fable: { used: 8, resetInMs: 19 * HOUR_MS + 12 * MINUTE_MS },
-    fiveHour: { used: 12, resetInMs: 3 * HOUR_MS },
-    opus: { used: 30, resetInMs: 19 * HOUR_MS + 12 * MINUTE_MS },
+    plan: 'max5',
+    sevenDay: { used: 48, resetInMs: 2 * DAY_MS + 4 * HOUR_MS },
+    fable: { used: 30, resetInMs: 2 * DAY_MS + 4 * HOUR_MS },
+    fiveHour: { used: 35, resetInMs: 2 * HOUR_MS },
+    opus: { used: 30, resetInMs: 2 * DAY_MS + 4 * HOUR_MS },
     grants: [
-      { label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS },
-      { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS },
+      { label: FULL_RESET, left: 1, endsInMs: 21 * DAY_MS },
+      { label: FABLE_RESET, left: 1, endsInMs: 109 * DAY_MS },
     ],
+    extraUsage: EXTRA_USAGE_OFF,
     traffic: busy(9),
     subscribedInMs: -38 * DAY_MS - 5 * HOUR_MS,
   },
   {
-    email: 'ops.lead@harbor.test',
+    email: 'studio-two@example.com',
     authIndex: 'claude-2',
-    sevenDay: { used: 0, resetInMs: 2 * DAY_MS },
-    fable: { used: 0, resetInMs: 2 * DAY_MS },
-    fiveHour: { used: 0, resetInMs: null },
-    opus: { used: 0, resetInMs: 2 * DAY_MS },
-    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
-    traffic: quiet(),
+    plan: 'max5',
+    sevenDay: { used: 20, resetInMs: 4 * DAY_MS + 2 * HOUR_MS },
+    fable: { used: 10, resetInMs: 4 * DAY_MS + 2 * HOUR_MS },
+    fiveHour: { used: 97, resetInMs: 1 * HOUR_MS + 20 * MINUTE_MS },
+    grants: [{ label: FULL_RESET, left: 1, endsInMs: 21 * DAY_MS }],
+    extraUsage: EXTRA_USAGE_OFF,
+    traffic: busy(12),
+    subscribedInMs: -61 * DAY_MS,
+    end: { inMs: 12 * DAY_MS, source: 'manual' },
   },
   {
-    email: 'build-bot@foundry.test',
-    note: 'ci runner',
+    email: 'night-shift@example.com',
+    note: 'research',
     authIndex: 'claude-3',
-    sevenDay: { used: 0, resetInMs: 5 * DAY_MS + 10 * HOUR_MS },
-    fable: { used: 0, resetInMs: 5 * DAY_MS + 10 * HOUR_MS },
-    fiveHour: { used: 0, resetInMs: null },
-    opus: { used: 0, resetInMs: 5 * DAY_MS + 10 * HOUR_MS },
+    plan: 'max20',
+    sevenDay: { used: 72, resetInMs: 1 * DAY_MS + 3 * HOUR_MS },
+    fable: { used: 57, resetInMs: 1 * DAY_MS + 3 * HOUR_MS },
+    fiveHour: null,
+    opus: { used: 64, resetInMs: 1 * DAY_MS + 3 * HOUR_MS },
     grants: [
-      { label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS },
-      { label: FABLE_RESET, left: 1, endsInMs: 117 * DAY_MS, requiresLimit: true },
+      { label: FULL_RESET, left: 1, endsInMs: 21 * DAY_MS },
+      { label: FABLE_RESET, left: 1, endsInMs: 109 * DAY_MS },
+      { label: TENURE_12_RESET, left: 1, endsInMs: 109 * DAY_MS },
+      { label: TENURE_6_RESET, left: 1, endsInMs: 109 * DAY_MS },
     ],
+    extraUsage: { monthlyLimitMinor: 10_000, disabledReason: 'out_of_credits' },
+    traffic: busy(14),
+    subscribedInMs: -200 * DAY_MS,
+  },
+  {
+    email: 'build-bot@example.com',
+    note: 'ci runner',
+    authIndex: 'claude-4',
+    plan: 'max20',
+    sevenDay: { used: 12, resetInMs: 1 * DAY_MS + 3 * HOUR_MS + 40 * MINUTE_MS },
+    fable: { used: 0, resetInMs: 1 * DAY_MS + 3 * HOUR_MS + 40 * MINUTE_MS },
+    fiveHour: null,
+    grants: [],
+    extraUsage: EXTRA_USAGE_OFF,
     traffic: busy(3),
     subscribedInMs: -78 * DAY_MS + 12 * HOUR_MS,
     end: { source: 'claude-anniversary' },
   },
   {
-    email: 'night-shift@harbor.test',
-    note: 'research',
-    authIndex: 'claude-4',
-    sevenDay: { used: 89, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
-    fable: { used: 78, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
-    fiveHour: { used: 64, resetInMs: 2 * HOUR_MS },
-    opus: { used: 91, resetInMs: 7 * HOUR_MS + 12 * MINUTE_MS },
-    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
-    traffic: busy(14),
-    subscribedInMs: -200 * DAY_MS,
-  },
-  {
-    email: 'alex@lumen.test',
-    note: 'personal',
+    email: 'ops-lead@example.com',
     authIndex: 'claude-5',
-    sevenDay: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
-    fable: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
-    fiveHour: { used: 0, resetInMs: null },
-    opus: { used: 0, resetInMs: 1 * DAY_MS + 11 * HOUR_MS },
-    grants: [{ label: FABLE_RESET, left: 2, endsInMs: 117 * DAY_MS }],
+    plan: 'max20',
+    sevenDay: { used: 100, resetInMs: 20 * HOUR_MS },
+    fable: { used: 100, resetInMs: 20 * HOUR_MS },
+    fiveHour: { used: 0, resetInMs: 4 * HOUR_MS },
+    grants: [{ label: FABLE_RESET, left: 1, endsInMs: 109 * DAY_MS, requiresLimit: true }],
+    extraUsage: EXTRA_USAGE_OFF,
     traffic: quiet(),
-    subscribedInMs: -61 * DAY_MS,
-    end: { inMs: -1 * DAY_MS, source: 'manual' },
+    subscribedInMs: -95 * DAY_MS,
   },
   {
-    email: 'sam-o@grove.test',
+    email: 'alex-lumen@example.com',
+    note: 'personal',
     authIndex: 'claude-6',
-    sevenDay: { used: 1, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
-    fable: { used: 1, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
-    fiveHour: { used: 0, resetInMs: null },
-    opus: { used: 0, resetInMs: 4 * DAY_MS + 20 * HOUR_MS },
-    grants: [{ label: FULL_RESET, left: 1, endsInMs: 29 * DAY_MS }],
+    plan: 'max20',
+    sevenDay: { used: 30, resetInMs: 3 * DAY_MS + 6 * HOUR_MS },
+    fable: { used: 58, resetInMs: 3 * DAY_MS + 6 * HOUR_MS },
+    fiveHour: { used: 5, resetInMs: 3 * HOUR_MS },
+    grants: [
+      { label: FULL_RESET, left: 1, endsInMs: 21 * DAY_MS },
+      { label: FABLE_RESET, left: 1, endsInMs: 109 * DAY_MS },
+      { label: TENURE_6_RESET, left: 1, endsInMs: 109 * DAY_MS },
+    ],
+    extraUsage: EXTRA_USAGE_OFF,
     traffic: busy(2),
-    subscribedInMs: -95 * DAY_MS,
-    end: { inMs: -3 * DAY_MS, source: 'plan-ended' },
-    planActive: false,
+    subscribedInMs: -120 * DAY_MS,
+    coolingForSeconds: 25 * 60,
   },
 ];
 
 export const codexFixtures: CodexFixture[] = [
   {
     accountId: 'ae5d455f',
-    email: 'tooling@lumen.test',
+    email: 'tooling-codex@example.com',
     note: 'tooling',
     authIndex: 'codex-1',
-    weekly: { used: 17, resetInMs: 1 * DAY_MS + 3 * HOUR_MS },
-    fiveHour: { used: 4, resetInMs: 4 * HOUR_MS },
-    renewsInMs: 21 * DAY_MS,
+    plan: 'prolite',
+    weekly: { used: 40, resetInMs: 5 * DAY_MS + 14 * HOUR_MS },
+    renewsInMs: 28 * DAY_MS,
     manualResets: 0,
     manualResetExpiresInMs: 0,
     traffic: busy(6),
@@ -166,42 +192,24 @@ export const codexFixtures: CodexFixture[] = [
   },
   {
     accountId: '0b7c21aa',
-    email: 'mary-jane@studio.test',
+    email: 'studio-codex@example.com',
     authIndex: 'codex-2',
+    plan: 'pro',
     weekly: { used: 100, resetInMs: 2 * DAY_MS + 1 * HOUR_MS },
-    fiveHour: { used: 100, resetInMs: 1 * HOUR_MS },
-    renewsInMs: 9 * DAY_MS,
+    renewsInMs: 16 * DAY_MS,
     manualResets: 2,
     manualResetExpiresInMs: 12 * DAY_MS,
     traffic: quiet(),
-    end: { inMs: 5 * DAY_MS, source: 'manual' },
+    end: { inMs: 16 * DAY_MS, source: 'manual' },
     warnings: [{ code: 'provider_renews' }],
-  },
-  {
-    accountId: '9f4e0c13',
-    email: 'build-bot@foundry.test',
-    authIndex: 'codex-3',
-    weekly: { used: 72, resetInMs: 1 * DAY_MS + 3 * HOUR_MS },
-    fiveHour: { used: 20, resetInMs: 2 * HOUR_MS },
-    renewsInMs: 15 * DAY_MS,
-    manualResets: 1,
-    manualResetExpiresInMs: 30 * DAY_MS,
-    traffic: busy(4),
-    end: { inMs: 10 * DAY_MS + 5 * HOUR_MS, source: 'codex-api' },
   },
 ];
 
 export const xaiFixture = {
-  email: 'tooling@grove.test',
+  email: 'grok-one@example.com',
   authIndex: 'xai-1',
-  weeklyUsed: 38,
+  weeklyUsed: 2,
   weeklyResetInMs: 5 * DAY_MS + 2 * HOUR_MS,
-};
-
-export const kimiFixture = {
-  email: 'tooling@grove.test',
-  authIndex: 'kimi-1',
-  weeklyResetInMs: 5 * DAY_MS - 1 * HOUR_MS,
 };
 
 export const issuedKeyFixtures = [
@@ -263,7 +271,7 @@ export const usageKeyFixtures: UsageKeyFixture[] = [
     peakPerHour: 9,
     failureRate: 0.02,
     routes: [
-      { provider: 'codex', model: 'gpt-5.5', authIndexes: ['codex-3'], weight: 1 },
+      { provider: 'codex', model: 'gpt-5.5', authIndexes: ['codex-1'], weight: 1 },
       {
         provider: 'claude',
         model: 'claude-fable-5',
@@ -286,7 +294,6 @@ export const CREDENTIAL_MODELS: Record<string, string[]> = {
   claude: ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5'],
   codex: ['gpt-5.5', 'gpt-5.5-codex'],
   xai: ['grok-5'],
-  kimi: ['kimi-k3'],
 };
 
 export const MOCK_CONFIG_YAML = `# Mock backend config; all values are fictitious.
@@ -299,10 +306,12 @@ management:
 access:
   api-keys: [mock-client-key-laptop, mock-client-key-ci, mock-client-key-shared]
 routing:
-  strategy: round-robin
+  strategy: use-or-lose
+  session-affinity: true
   retry:
     request-retry: 3
   use-or-lose:
+    short-window-cap-pct: 95
     drain-ending-credentials: true
   cooldown:
     disable-cooling: false

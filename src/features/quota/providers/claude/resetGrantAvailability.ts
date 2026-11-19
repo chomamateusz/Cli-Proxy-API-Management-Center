@@ -40,9 +40,18 @@ export interface ResetGrantLine {
   resetsLeft: number | null;
   resetsTotal: number | null;
   endsAt: string | null;
+  startsAt?: string | null;
   retry: boolean;
   block: ResetGrantActionBlock | null;
 }
+
+export const usableGrantCount = (lines: readonly ResetGrantLine[], nowMs: number): number =>
+  lines.filter(
+    (line) =>
+      (line.resetsLeft ?? 0) > 0 &&
+      (parseIsoToMs(line.startsAt) ?? -Infinity) <= nowMs &&
+      (parseIsoToMs(line.endsAt) ?? Infinity) > nowMs
+  ).length;
 
 /** A pending claim stays listed after upstream drops its grant, so Retry stays reachable. */
 export function planResetGrantLines(
@@ -71,6 +80,7 @@ export function planResetGrantLines(
       resetsLeft: grant.resetsLeft,
       resetsTotal: grant.resetsTotal,
       endsAt: grant.endsAt,
+      startsAt: grant.startsAt,
       ...action(grant.id),
     }));
   if (pending && !lines.some((line) => line.id === pending.grantId)) {

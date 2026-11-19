@@ -1688,6 +1688,50 @@
     "unused_resets_one": "{{count}} kullanılmamış sıfırlama bu hesapla birlikte sona erer",
     "unused_resets_other": "{{count}} kullanılmamış sıfırlama bu hesapla birlikte sona erer"
   },
+  "quota_slots": {
+    "five_hour": "5 saat",
+    "weekly": "Haftalık",
+    "monthly": "Aylık",
+    "model_fable": "Haftalık Fable",
+    "not_available": "{{label}}: bu hesapta bu limit yok"
+  },
+  "quota_cards": {
+    "resets": "Sıfırlamalar ({{count}})",
+    "more_limits": "Diğer limitler",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "Henüz yüklenmedi"
+  },
+  "quota_router": {
+    "next": "sıradaki",
+    "position_label": "Yönlendirici sırası {{position}}",
+    "position_next_label": "Yönlendirici sırası {{position}}, sıradaki seçim",
+    "tier_capped": "5 saat sınırı",
+    "tier_limited": "haftalık limit",
+    "no_reading": "Okuma yok",
+    "list_order": "Liste sırası",
+    "out_cooling": "Beklemede",
+    "out_disabled": "Devre dışı",
+    "family_label": "Sıralama ölçütü",
+    "family_all": "Tüm modeller",
+    "family_fable": "Fable",
+    "note": "Sıra: yeni oturumlar için use-or-lose tahmini.",
+    "note_other": "Sıra: yeni oturumlar için use-or-lose tahmini. Yönlendirme şu anda {{strategy}} kullanıyor; proxy farklı seçebilir."
+  },
+  "quota_groups": {
+    "label": "Grup",
+    "control_label": "Ayrı grupta gösterilen sağlayıcılar",
+    "all_accounts": "Tüm hesaplar",
+    "all_others": "Diğerleri",
+    "accounts_one": "{{count}} hesap",
+    "accounts_other": "{{count}} hesap",
+    "loaded": "{{count}}/{{total}} yüklendi",
+    "nothing_loaded": "Henüz kota yüklenmedi. Her hesabı okumak için “{{action}}” düğmesini kullanın.",
+    "pool_covers": "{{total}} hesaptan {{covered}}",
+    "weighted": "plana göre ağırlıklı",
+    "weighted_title": "Plan boyutuna göre ağırlıklı: Max 20x 20, Max 5x 5, Pro 1 sayılır",
+    "pool_label": "{{label}}: {{total}} hesaptan {{covered}} için %{{percent}} kaldı",
+    "pool_not_available": "{{label}}: bu gruptaki hiçbir hesapta bu limit yok"
+  },
   "quota_management": {
     "search_label": "Hesap Ara",
     "search_placeholder": "Dosya Adına veya E-postaya Göre Ara",
@@ -1698,6 +1742,7 @@
     "description": "Antigravity, Codex, Claude, Kimi ve xAI Kimlik Bilgileri için OAuth Kota Durumunu İzle.",
     "refresh_all_credentials": "Tüm Kimlik Bilgilerini Yenile",
     "sort_label": "Sırala",
+    "sort_router": "Yönlendirici sırası",
     "sort_default": "Varsayılan",
     "sort_soonest": "En Yakın Toparlanma",
     "meta_credentials": "{{count}} Kimlik Bilgisi",

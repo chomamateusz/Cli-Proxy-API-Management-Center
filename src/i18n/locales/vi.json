@@ -1644,11 +1644,56 @@
     "unused_resets_one": "{{count}} lượt đặt lại chưa dùng sẽ mất cùng tài khoản này",
     "unused_resets_other": "{{count}} lượt đặt lại chưa dùng sẽ mất cùng tài khoản này"
   },
+  "quota_slots": {
+    "five_hour": "5 giờ",
+    "weekly": "Hằng tuần",
+    "monthly": "Hằng tháng",
+    "model_fable": "Fable hằng tuần",
+    "not_available": "{{label}}: tài khoản này không có giới hạn này"
+  },
+  "quota_cards": {
+    "resets": "Lượt đặt lại ({{count}})",
+    "more_limits": "Giới hạn khác",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "Chưa tải"
+  },
+  "quota_router": {
+    "next": "kế tiếp",
+    "position_label": "Vị trí định tuyến {{position}}",
+    "position_next_label": "Vị trí định tuyến {{position}}, được chọn kế tiếp",
+    "tier_capped": "chạm trần 5 giờ",
+    "tier_limited": "hết hạn mức tuần",
+    "no_reading": "Chưa có số liệu",
+    "list_order": "Thứ tự danh sách",
+    "out_cooling": "Đang tạm nghỉ",
+    "out_disabled": "Đã tắt",
+    "family_label": "Xếp theo",
+    "family_all": "Mọi mô hình",
+    "family_fable": "Fable",
+    "note": "Thứ tự: ước tính use-or-lose cho phiên mới.",
+    "note_other": "Thứ tự: ước tính use-or-lose cho phiên mới. Định tuyến hiện dùng {{strategy}}, nên proxy có thể chọn khác."
+  },
+  "quota_groups": {
+    "label": "Nhóm",
+    "control_label": "Nhà cung cấp có nhóm riêng",
+    "all_accounts": "Tất cả tài khoản",
+    "all_others": "Tất cả còn lại",
+    "accounts_one": "{{count}} tài khoản",
+    "accounts_other": "{{count}} tài khoản",
+    "loaded": "Đã tải {{count}}/{{total}}",
+    "nothing_loaded": "Chưa tải hạn mức. Dùng “{{action}}” để đọc từng tài khoản.",
+    "pool_covers": "{{covered}} trên {{total}} tài khoản",
+    "weighted": "theo trọng số gói",
+    "weighted_title": "Theo trọng số quy mô gói: Max 20x tính 20, Max 5x tính 5, Pro tính 1",
+    "pool_label": "{{label}}: còn {{percent}}% trên {{covered}} trong {{total}} tài khoản",
+    "pool_not_available": "{{label}}: không tài khoản nào trong nhóm có giới hạn này"
+  },
   "quota_management": {
     "title": "Quản lý Quota",
     "description": "Theo dõi trạng thái quota OAuth của credential Antigravity, Codex, Claude, Kimi và xAI.",
     "refresh_all_credentials": "Làm mới mọi credential",
     "sort_label": "Sắp xếp",
+    "sort_router": "Thứ tự bộ định tuyến",
     "sort_default": "Mặc định",
     "sort_soonest": "Sớm khôi phục nhất",
     "meta_credentials": "{{count}} credential",

@@ -202,6 +202,76 @@
   align-items: stretch;
 }
 
+.cardGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.groupControl {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.groupLabel {
+  padding-right: 4px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.groupChip {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &[aria-pressed='true'] {
+    border-color: var(--border-hover);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .groupChip:hover:not([aria-pressed='true']) {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groupChip {
+    transition: none;
+  }
+
+  .groupChip:active {
+    transform: none;
+  }
+}
+
 .groups {
   display: flex;
   flex-direction: column;

@@ -1715,6 +1715,50 @@
     "unused_resets_one": "{{count}} 次未使用的重置會隨此帳戶一起失效",
     "unused_resets_other": "{{count}} 次未使用的重置會隨此帳戶一起失效"
   },
+  "quota_slots": {
+    "five_hour": "5 小時",
+    "weekly": "每週",
+    "monthly": "每月",
+    "model_fable": "每週 Fable",
+    "not_available": "{{label}}：此帳戶沒有該限額"
+  },
+  "quota_cards": {
+    "resets": "重置（{{count}}）",
+    "more_limits": "更多限額",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "尚未載入"
+  },
+  "quota_router": {
+    "next": "下一個",
+    "position_label": "路由位次 {{position}}",
+    "position_next_label": "路由位次 {{position}}，下一個被選中",
+    "tier_capped": "5 小時上限",
+    "tier_limited": "每週額度已滿",
+    "no_reading": "無讀數",
+    "list_order": "列表順序",
+    "out_cooling": "冷卻中",
+    "out_disabled": "已停用",
+    "family_label": "排序依據",
+    "family_all": "全部模型",
+    "family_fable": "Fable",
+    "note": "順序：按 use-or-lose 估算新工作階段的選號。",
+    "note_other": "順序：按 use-or-lose 估算新工作階段的選號。目前路由策略為 {{strategy}}，代理的實際選擇可能不同。"
+  },
+  "quota_groups": {
+    "label": "分組",
+    "control_label": "單獨成組的提供商",
+    "all_accounts": "全部帳戶",
+    "all_others": "其他全部",
+    "accounts_one": "{{count}} 個帳戶",
+    "accounts_other": "{{count}} 個帳戶",
+    "loaded": "已載入 {{count}}/{{total}}",
+    "nothing_loaded": "尚未載入額度。使用「{{action}}」讀取每個帳戶。",
+    "pool_covers": "{{total}} 個帳戶中的 {{covered}} 個",
+    "weighted": "按方案加權",
+    "weighted_title": "按方案規模加權：Max 20x 計 20，Max 5x 計 5，Pro 計 1",
+    "pool_label": "{{label}}：{{total}} 個帳戶中的 {{covered}} 個合計剩餘 {{percent}}%",
+    "pool_not_available": "{{label}}：此分組中沒有帳戶有該限額"
+  },
   "quota_management": {
     "search_label": "搜尋帳號",
     "search_placeholder": "依檔案名稱或電子郵件搜尋",
@@ -1725,6 +1769,7 @@
     "description": "集中查看 OAuth 配額與剩餘情況",
     "refresh_all_credentials": "重新整理全部憑證",
     "sort_label": "排序",
+    "sort_router": "路由順序",
     "sort_default": "預設",
     "sort_soonest": "最快恢復優先",
     "meta_credentials": "{{count}} 個憑證",

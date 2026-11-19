@@ -13,6 +13,7 @@ import {
   type BurnLookback,
 } from './burnForecast';
 import type { QuotaProviderType } from './providers/types';
+import { isRouterFamily, type RouterFamily } from './routerOrder';
 
 export type QuotaBurnUiState = {
   collapsed?: boolean;
@@ -28,11 +29,13 @@ export type QuotaUiState = {
   sortMode?: QuotaSortMode;
   showEmails?: boolean;
   showExtraBuckets?: boolean;
+  routerFamily?: RouterFamily;
   burn?: QuotaBurnUiState;
 };
 
 const QUOTA_UI_STATE_KEY = 'quotaPage.uiState';
 const QUOTA_VIEW_KEY = 'quotaPage.view';
+const QUOTA_GROUPS_KEY = 'quotaPage.groups';
 
 const QUOTA_TAB_ID_SET = new Set<string>(['all', ...QUOTA_TAB_ORDER]);
 const QUOTA_SORT_MODE_SET = new Set<string>(QUOTA_SORT_MODES);
@@ -87,6 +90,7 @@ export const readQuotaUiState = (): QuotaUiState | null => {
       sortMode: isQuotaSortMode(parsed.sortMode) ? parsed.sortMode : undefined,
       showEmails: parsed.showEmails === true ? true : undefined,
       showExtraBuckets: parsed.showExtraBuckets === true ? true : undefined,
+      routerFamily: isRouterFamily(parsed.routerFamily) ? parsed.routerFamily : undefined,
       burn: readBurnUiState(parsed.burn),
     };
   } catch {
@@ -127,5 +131,27 @@ export const writePersistedQuotaView = (view: QuotaView) => {
     window.localStorage.setItem(QUOTA_VIEW_KEY, view);
   } catch {
     // Storage blocked or full: the view still switches, it just is not remembered.
+  }
+};
+
+export const readPersistedQuotaGroups = (): QuotaProviderType[] | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(QUOTA_GROUPS_KEY);
+    if (stored === null) return null;
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return null;
+    return QUOTA_TAB_ORDER.filter((type) => parsed.includes(type));
+  } catch {
+    return null;
+  }
+};
+
+export const writePersistedQuotaGroups = (separate: readonly QuotaProviderType[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(QUOTA_GROUPS_KEY, JSON.stringify(separate));
+  } catch {
+    // Storage blocked or full: the grouping still applies, it just is not remembered.
   }
 };

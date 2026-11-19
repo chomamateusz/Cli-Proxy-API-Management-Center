@@ -1693,6 +1693,52 @@
     "unused_resets_many": "{{count}} неиспользованных сбросов пропадут вместе с аккаунтом",
     "unused_resets_other": "{{count}} неиспользованного сброса пропадут вместе с аккаунтом"
   },
+  "quota_slots": {
+    "five_hour": "5 часов",
+    "weekly": "Неделя",
+    "monthly": "Месяц",
+    "model_fable": "Неделя Fable",
+    "not_available": "{{label}}: у этого аккаунта нет такого лимита"
+  },
+  "quota_cards": {
+    "resets": "Сбросы ({{count}})",
+    "more_limits": "Другие лимиты",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "Ещё не загружено"
+  },
+  "quota_router": {
+    "next": "следующий",
+    "position_label": "Позиция в роутере {{position}}",
+    "position_next_label": "Позиция в роутере {{position}}, выбирается следующим",
+    "tier_capped": "лимит 5 часов",
+    "tier_limited": "недельный лимит",
+    "no_reading": "Нет данных",
+    "list_order": "Порядок списка",
+    "out_cooling": "Пауза",
+    "out_disabled": "Отключён",
+    "family_label": "Ранжировать по",
+    "family_all": "Все модели",
+    "family_fable": "Fable",
+    "note": "Порядок: оценка use-or-lose для новых сессий.",
+    "note_other": "Порядок: оценка use-or-lose для новых сессий. Сейчас роутинг использует {{strategy}}, поэтому прокси может выбрать иначе."
+  },
+  "quota_groups": {
+    "label": "Группы",
+    "control_label": "Провайдеры в отдельной группе",
+    "all_accounts": "Все аккаунты",
+    "all_others": "Все остальные",
+    "accounts_one": "{{count}} аккаунт",
+    "accounts_few": "{{count}} аккаунта",
+    "accounts_many": "{{count}} аккаунтов",
+    "accounts_other": "{{count}} аккаунта",
+    "loaded": "Загружено {{count}}/{{total}}",
+    "nothing_loaded": "Квоты ещё не загружены. Нажмите «{{action}}», чтобы прочитать каждый аккаунт.",
+    "pool_covers": "{{covered}} из {{total}} аккаунтов",
+    "weighted": "с весом по тарифу",
+    "weighted_title": "С весом по размеру тарифа: Max 20x считается как 20, Max 5x как 5, Pro как 1",
+    "pool_label": "{{label}}: осталось {{percent}}% по {{covered}} из {{total}} аккаунтов",
+    "pool_not_available": "{{label}}: ни у одного аккаунта в группе нет такого лимита"
+  },
   "quota_management": {
     "search_label": "Поиск аккаунтов",
     "search_placeholder": "Поиск по имени файла или электронной почте",
@@ -1703,6 +1749,7 @@
     "description": "Следите за статусом квот OAuth для учётных данных Antigravity, Codex, Claude, Kimi и xAI.",
     "refresh_all_credentials": "Обновить все учётные данные",
     "sort_label": "Сортировка",
+    "sort_router": "Порядок роутера",
     "sort_default": "По умолчанию",
     "sort_soonest": "Сначала ближайшее восстановление",
     "meta_credentials": "{{count}} учётных данных",
