@@ -102,9 +102,174 @@
   .icon,
   .iconFallback,
   .fileName,
+  .metaRow,
   .body {
     opacity: 0.55;
   }
+}
+
+/* ---------- Router order badge ---------- */
+
+.orderBadge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: $radius-full;
+  border: 1px solid var(--border-color);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-secondary);
+
+  &[data-kind='next'] {
+    border-color: color-mix(in srgb, var(--success-color) 45%, var(--border-color));
+    color: var(--success-color);
+    background: color-mix(in srgb, var(--success-color) 10%, transparent);
+  }
+
+  &[data-kind='unranked'] {
+    color: var(--text-tertiary);
+    border-style: dashed;
+  }
+
+  &[data-kind='out'] {
+    border-color: transparent;
+    color: var(--error-color);
+    background: color-mix(in srgb, var(--error-color) 12%, transparent);
+  }
+}
+
+.orderNumber {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+}
+
+.orderTier {
+  color: var(--warning-text);
+}
+
+/* ---------- Slot layout: meta row, slots, sections ---------- */
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 22px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  &:last-child {
+    flex: 0 1 auto;
+  }
+}
+
+.metaLabel {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.metaValue {
+  min-width: 0;
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  @include text-ellipsis;
+}
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.statusLine {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plainRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+
+  & + & {
+    padding-top: 8px;
+    border-top: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+}
+
+.plainRowHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plainLabel {
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.plainValue {
+  flex: none;
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.plainMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-width: 0;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.plainActionLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.card[data-layout='slots'] .actionRow {
+  margin-top: auto;
 }
 
 /* ---------- body 容器 ---------- */

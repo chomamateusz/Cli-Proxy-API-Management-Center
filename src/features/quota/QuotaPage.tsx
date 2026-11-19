@@ -21,7 +21,13 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
+import {
+  useAuthStore,
+  useConfigStore,
+  useNotificationStore,
+  useQuotaStore,
+  useThemeStore,
+} from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import {
   getQuotaAccountIdentities,
@@ -38,6 +44,7 @@ import { QuotaViewSwitch } from './components/QuotaViewSwitch';
 import { QuotaBurnPanel } from './components/QuotaBurnPanel';
 import { QuotaProviderGroup, type QuotaColumn } from './components/QuotaProviderGroup';
 import { QuotaAccountRow, type QuotaExtrasColumn } from './components/QuotaAccountRow';
+import { QuotaCardGroup } from './components/QuotaCardGroup';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
@@ -70,15 +77,42 @@ import { BURN_WINDOW_IDS, burnAccountFromRow } from './burnForecast';
 import { buildLastHourActivity } from './quotaActivity';
 import { buildProviderSummary, buildQuotaRowModel, maskCredentialName } from './quotaOverview';
 import { useQuotaReadings } from './quotaReadings';
-import { withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
+import { readCredentialEnd, withCredentialEnd, withoutEndedCredentials } from './credentialEnd';
 import { createCredentialEndActions } from './credentialEndActions';
 import type { CredentialEndActions } from './components/CredentialEndControl';
 import {
+  readPersistedQuotaGroups,
   readPersistedQuotaView,
   readQuotaUiState,
+  writePersistedQuotaGroups,
   writePersistedQuotaView,
   writeQuotaUiState,
 } from './uiState';
+import {
+  rankByRouter,
+  readRouterSettings,
+  routerOutOfRotation,
+  routerReadingsFor,
+  type RouterFamily,
+  type RouterPlacement,
+} from './routerOrder';
+import {
+  buildQuotaCardGroups,
+  defaultSeparateProviders,
+  presentProviders,
+  toggleSeparateProvider,
+} from './quotaGroups';
+import {
+  buildGroupPools,
+  columnVariant,
+  hasSlotMapping,
+  readQuotaSlots,
+  slotColumnsFor,
+  type PoolAccount,
+  type QuotaSlotReading,
+} from './quotaSlots';
+import { hasClaudeUsageData } from './providers/claude/data';
+import type { ClaudeQuotaState } from '@/types';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
@@ -99,7 +133,7 @@ const EXTRAS_COLUMNS: Partial<Record<QuotaProviderType, QuotaExtrasColumn>> = {
 };
 
 export function QuotaPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
@@ -108,8 +142,13 @@ export function QuotaPage() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<QuotaTabId>(() => readQuotaUiState()?.tab ?? 'all');
   const [sortMode, setSortMode] = useState<QuotaSortMode>(
-    () => readQuotaUiState()?.sortMode ?? 'default'
+    () => readQuotaUiState()?.sortMode ?? 'router'
   );
+  const [routerFamily, setRouterFamily] = useState<RouterFamily>(
+    () => readQuotaUiState()?.routerFamily ?? 'all'
+  );
+  const [storedGroups, setStoredGroups] = useState(readPersistedQuotaGroups);
+  const rawConfig = useConfigStore((state) => state.config?.raw);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<QuotaView>(readPersistedQuotaView);
@@ -252,7 +291,7 @@ export function QuotaPage() {
   // 换一次身份，会反复空转下面那个「刷新全部」的 loading 下降沿 effect。
   const tick = useNow(sortMode !== 'default');
   const sortNow = sortMode === 'default' ? 0 : tick;
-  const nowMs = useNow(isOverview);
+  const nowMs = useNow();
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   const identities = useMemo(() => {
@@ -289,10 +328,41 @@ export function QuotaPage() {
     (entry: QuotaFileEntry) => nextRecoveryMs(entry.type, getQuota(entry), sortNow),
     [getQuota, sortNow]
   );
+  const routerSettings = useMemo(() => readRouterSettings(rawConfig), [rawConfig]);
+  const routerRanking = useMemo(
+    () =>
+      sortMode === 'router'
+        ? rankByRouter(
+            filteredEntries.map((entry) => ({
+              item: entry,
+              provider: entry.type,
+              priority: entry.file.priority ?? 0,
+              endsAtMs: readCredentialEnd(entry.file, sortNow).endsAtMs,
+              readings: routerReadingsFor(entry.type, getQuota(entry), sortNow),
+              outOfRotation: routerOutOfRotation(entry.file, sortNow),
+            })),
+            routerFamily,
+            routerSettings,
+            sortNow
+          )
+        : null,
+    [filteredEntries, getQuota, routerFamily, routerSettings, sortMode, sortNow]
+  );
+  const routerPlacements = useMemo(
+    () =>
+      new Map<string, RouterPlacement>(
+        (routerRanking ?? []).map((ranked) => [entryKey(ranked.candidate.item), ranked.placement])
+      ),
+    [routerRanking]
+  );
+
   // 排序在分页之前：否则「最快恢复」只在当前页内成立。
   const sortedEntries = useMemo(
-    () => sortQuotaEntries(filteredEntries, sortMode, resolveNextRecovery),
-    [filteredEntries, sortMode, resolveNextRecovery]
+    () =>
+      routerRanking
+        ? routerRanking.map((ranked) => ranked.candidate.item)
+        : sortQuotaEntries(filteredEntries, sortMode, resolveNextRecovery),
+    [filteredEntries, routerRanking, sortMode, resolveNextRecovery]
   );
 
   const { pageItems, currentPage, totalPages } = useMemo(
@@ -305,6 +375,25 @@ export function QuotaPage() {
     setPage(1);
     writeQuotaUiState({ tab: next as QuotaTabId });
   }, []);
+
+  const handleRouterFamilyChange = useCallback((next: RouterFamily) => {
+    setRouterFamily(next);
+    writeQuotaUiState({ routerFamily: next });
+  }, []);
+
+  const separateProviders = useMemo(
+    () => storedGroups ?? defaultSeparateProviders(entries),
+    [entries, storedGroups]
+  );
+  const groupChoices = useMemo(() => presentProviders(entries), [entries]);
+  const handleToggleGroup = useCallback(
+    (type: QuotaProviderType) => {
+      const next = toggleSeparateProvider(separateProviders, type);
+      setStoredGroups(next);
+      writePersistedQuotaGroups(next);
+    },
+    [separateProviders]
+  );
 
   const handleSortModeChange = useCallback((next: string) => {
     setSortMode(next as QuotaSortMode);
@@ -499,6 +588,81 @@ export function QuotaPage() {
     t,
   ]);
 
+  const slotColumns = useMemo(
+    () => slotColumnsFor(presentProviders(filteredEntries)),
+    [filteredEntries]
+  );
+
+  const cardGroups = useMemo(() => {
+    if (isOverview) return [];
+    const language = i18n.resolvedLanguage;
+    const slotsOf = (entry: QuotaFileEntry) => {
+      const quota = getQuota(entry);
+      const loaded =
+        quota?.status === 'success' ||
+        (entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined));
+      return {
+        loaded,
+        planType: (quota as { planType?: string | null } | undefined)?.planType ?? null,
+        slots: loaded ? (readQuotaSlots(t, entry.type, quota, language)?.slots ?? {}) : {},
+      };
+    };
+    const onPage = new Set(pageItems.map(entryKey));
+    return buildQuotaCardGroups(filteredEntries, separateProviders, tab).flatMap((group) => {
+      const cards = sortedEntries.filter(
+        (entry) => onPage.has(entryKey(entry)) && group.entries.includes(entry)
+      );
+      if (cards.length === 0) return [];
+      const accounts: PoolAccount[] = group.entries
+        .filter((entry) => hasSlotMapping(entry.type))
+        .map((entry) => {
+          const reading = slotsOf(entry);
+          return {
+            type: entry.type,
+            included:
+              reading.loaded &&
+              !entry.file.disabled &&
+              !readCredentialEnd(entry.file, nowMs).ended,
+            planType: reading.planType,
+            slots: reading.slots,
+          };
+        });
+      return [
+        {
+          ...group,
+          cards,
+          loadedCount: group.entries.filter((entry) => getQuota(entry)?.status === 'success')
+            .length,
+          pools: accounts.length > 0 ? buildGroupPools(accounts, slotColumns) : null,
+          hasClaude: group.entries.some((entry) => entry.type === 'claude'),
+          weeklyReadings: accounts.map((account) => account.slots.weekly),
+        },
+      ];
+    });
+  }, [
+    filteredEntries,
+    getQuota,
+    i18n.resolvedLanguage,
+    isOverview,
+    nowMs,
+    pageItems,
+    separateProviders,
+    slotColumns,
+    sortedEntries,
+    t,
+    tab,
+  ]);
+
+  const slotVariants = useMemo(
+    () => ({
+      weekly: columnVariant(
+        'weekly',
+        cardGroups.flatMap((group) => group.weeklyReadings) as (QuotaSlotReading | undefined)[]
+      ),
+    }),
+    [cardGroups]
+  );
+
   const burnType = isOverview && tab !== 'all' && BURN_WINDOW_IDS[tab] ? tab : null;
   const burnAccounts = useMemo(
     () =>
@@ -618,6 +782,28 @@ export function QuotaPage() {
             )}
           </div>
           <div className={styles.toolbarEnd}>
+            {!isOverview && tab === 'all' && groupChoices.length > 0 && (
+              <div
+                className={styles.groupControl}
+                role="group"
+                aria-label={t('quota_groups.control_label')}
+              >
+                <span className={styles.groupLabel} aria-hidden="true">
+                  {t('quota_groups.label')}
+                </span>
+                {groupChoices.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={styles.groupChip}
+                    aria-pressed={separateProviders.includes(type)}
+                    onClick={() => handleToggleGroup(type)}
+                  >
+                    {getTypeLabel(t, type)}
+                  </button>
+                ))}
+              </div>
+            )}
             <QuotaViewSwitch view={view} onChange={handleViewChange} />
             <div className={styles.sort}>
               <Select
@@ -724,21 +910,44 @@ export function QuotaPage() {
             ))}
           </div>
         ) : (
-          <div className={styles.grid}>
-            {pageItems.map((entry, index) => (
-              <QuotaCard
-                key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                entry={entry}
-                quota={getQuota(entry)}
+          <div className={styles.cardGroups}>
+            {cardGroups.map((group) => (
+              <QuotaCardGroup
+                key={group.id}
+                kind={group.kind}
+                type={group.type}
+                accountCount={group.entries.length}
+                loadedCount={group.loadedCount}
+                pools={group.pools}
                 resolvedTheme={resolvedTheme}
-                canRefresh={canUseActions && !entry.file.disabled}
-                resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                entranceDelayMs={cardEntranceDelay(index)}
-                onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                canEditEnd={canUseActions}
-                endActions={credentialEndActions}
-              />
+                routerStrategy={sortMode === 'router' ? routerSettings.strategy : null}
+                family={
+                  sortMode === 'router' && group.hasClaude
+                    ? { value: routerFamily, onChange: handleRouterFamilyChange }
+                    : null
+                }
+              >
+                {group.cards.map((entry) => (
+                  <QuotaCard
+                    key={entryKey(entry)}
+                    entry={entry}
+                    quota={getQuota(entry)}
+                    resolvedTheme={resolvedTheme}
+                    canRefresh={canUseActions && !entry.file.disabled}
+                    resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                    entranceDelayMs={cardEntranceDelay(pageItems.indexOf(entry))}
+                    onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                    onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                    canEditEnd={canUseActions}
+                    endActions={credentialEndActions}
+                    slotColumns={slotColumns}
+                    slotVariants={slotVariants}
+                    routerPlacement={
+                      sortMode === 'router' ? routerPlacements.get(entryKey(entry)) : null
+                    }
+                  />
+                ))}
+              </QuotaCardGroup>
             ))}
           </div>
         )}

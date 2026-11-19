@@ -1688,6 +1688,50 @@
     "unused_resets_one": "{{count}} unused reset ends with this account",
     "unused_resets_other": "{{count}} unused resets end with this account"
   },
+  "quota_slots": {
+    "five_hour": "5-hour",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "model_fable": "Weekly Fable",
+    "not_available": "{{label}}: not available for this account"
+  },
+  "quota_cards": {
+    "resets": "Resets ({{count}})",
+    "more_limits": "More limits",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "Not loaded yet"
+  },
+  "quota_router": {
+    "next": "next",
+    "position_label": "Router position {{position}}",
+    "position_next_label": "Router position {{position}}, picked next",
+    "tier_capped": "5-hour cap",
+    "tier_limited": "weekly limit",
+    "no_reading": "No reading",
+    "list_order": "List order",
+    "out_cooling": "Cooling down",
+    "out_disabled": "Disabled",
+    "family_label": "Rank by",
+    "family_all": "All models",
+    "family_fable": "Fable",
+    "note": "Order: use-or-lose estimate for new sessions.",
+    "note_other": "Order: use-or-lose estimate for new sessions. Routing currently uses {{strategy}}, so the proxy may pick differently."
+  },
+  "quota_groups": {
+    "label": "Group",
+    "control_label": "Providers in their own group",
+    "all_accounts": "All accounts",
+    "all_others": "All others",
+    "accounts_one": "{{count}} account",
+    "accounts_other": "{{count}} accounts",
+    "loaded": "{{count}}/{{total}} loaded",
+    "nothing_loaded": "No quota loaded yet. Use “{{action}}” to read every account.",
+    "pool_covers": "{{covered}} of {{total}} accounts",
+    "weighted": "weighted by plan",
+    "weighted_title": "Weighted by plan size: Max 20x counts 20, Max 5x counts 5, Pro counts 1",
+    "pool_label": "{{label}}: {{percent}}% left across {{covered}} of {{total}} accounts",
+    "pool_not_available": "{{label}}: no account in this group has this limit"
+  },
   "quota_management": {
     "search_label": "Search accounts",
     "search_placeholder": "Search by filename or email",
@@ -1698,6 +1742,7 @@
     "description": "Monitor OAuth quota status for Antigravity, Codex, Claude, Kimi, and xAI credentials.",
     "refresh_all_credentials": "Refresh all credentials",
     "sort_label": "Sort",
+    "sort_router": "Router order",
     "sort_default": "Default",
     "sort_soonest": "Soonest recovery",
     "meta_credentials": "{{count}} credentials",

@@ -1687,6 +1687,50 @@
     "unused_resets_one": "{{count}} 次未使用的重置会随此账户一起失效",
     "unused_resets_other": "{{count}} 次未使用的重置会随此账户一起失效"
   },
+  "quota_slots": {
+    "five_hour": "5 小时",
+    "weekly": "每周",
+    "monthly": "每月",
+    "model_fable": "每周 Fable",
+    "not_available": "{{label}}：此账户没有该限额"
+  },
+  "quota_cards": {
+    "resets": "重置（{{count}}）",
+    "more_limits": "更多限额",
+    "spent_of_limit": "{{spent}} / {{limit}}",
+    "not_loaded": "尚未加载"
+  },
+  "quota_router": {
+    "next": "下一个",
+    "position_label": "路由位次 {{position}}",
+    "position_next_label": "路由位次 {{position}}，下一个被选中",
+    "tier_capped": "5 小时上限",
+    "tier_limited": "每周额度已满",
+    "no_reading": "无读数",
+    "list_order": "列表顺序",
+    "out_cooling": "冷却中",
+    "out_disabled": "已停用",
+    "family_label": "排序依据",
+    "family_all": "全部模型",
+    "family_fable": "Fable",
+    "note": "顺序：按 use-or-lose 估算新会话的选号。",
+    "note_other": "顺序：按 use-or-lose 估算新会话的选号。当前路由策略为 {{strategy}}，代理的实际选择可能不同。"
+  },
+  "quota_groups": {
+    "label": "分组",
+    "control_label": "单独成组的提供商",
+    "all_accounts": "全部账户",
+    "all_others": "其他全部",
+    "accounts_one": "{{count}} 个账户",
+    "accounts_other": "{{count}} 个账户",
+    "loaded": "已加载 {{count}}/{{total}}",
+    "nothing_loaded": "尚未加载额度。使用“{{action}}”读取每个账户。",
+    "pool_covers": "{{total}} 个账户中的 {{covered}} 个",
+    "weighted": "按套餐加权",
+    "weighted_title": "按套餐规模加权：Max 20x 计 20，Max 5x 计 5，Pro 计 1",
+    "pool_label": "{{label}}：{{total}} 个账户中的 {{covered}} 个合计剩余 {{percent}}%",
+    "pool_not_available": "{{label}}：此分组中没有账户有该限额"
+  },
   "quota_management": {
     "search_label": "搜索账号",
     "search_placeholder": "按文件名或邮箱搜索",
@@ -1697,6 +1741,7 @@
     "description": "集中查看 OAuth 额度与剩余情况",
     "refresh_all_credentials": "刷新全部凭证",
     "sort_label": "排序",
+    "sort_router": "路由顺序",
     "sort_default": "默认",
     "sort_soonest": "最快恢复优先",
     "meta_credentials": "{{count}} 个凭证",
