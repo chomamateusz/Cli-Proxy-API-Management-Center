@@ -1,9 +1,3 @@
-/**
- * Aligned limit slots for the Cards view: every mapped provider fills the same three columns
- * (five-hour, weekly, weekly model limit), everything else goes to "More limits".
- * React-free so slot mapping and the pooled group bars are testable directly.
- */
-
 import type { TFunction } from 'i18next';
 import type { ClaudeQuotaState, CodexQuotaState, XaiQuotaState } from '@/types';
 import { formatQuotaResetTime } from '@/utils/quota';
@@ -22,7 +16,6 @@ export const PROVIDER_SLOTS: Partial<Record<QuotaProviderType, readonly QuotaSlo
 
 export const hasSlotMapping = (type: QuotaProviderType): boolean => Boolean(PROVIDER_SLOTS[type]);
 
-/** Union of the slot sets of the providers present, in canonical order. */
 export function slotColumnsFor(types: Iterable<QuotaProviderType>): QuotaSlotId[] {
   const present = new Set<QuotaSlotId>();
   for (const type of types) PROVIDER_SLOTS[type]?.forEach((slot) => present.add(slot));
@@ -188,7 +181,9 @@ function xaiSlots(t: TFunction, quota: XaiQuotaState): QuotaCardSlots {
   const slots: QuotaCardSlots['slots'] = {};
   const weekly =
     billing.periodType === 'weekly' &&
-    (billing.usagePercent !== null || Boolean(billing.periodEnd) || billing.productUsage.length > 0);
+    (billing.usagePercent !== null ||
+      Boolean(billing.periodEnd) ||
+      billing.productUsage.length > 0);
   if (weekly) {
     slots.weekly = {
       slot: 'weekly',
@@ -264,7 +259,6 @@ export function readQuotaSlots(
   }
 }
 
-/** A column reads "Monthly" only when every reading in it is a monthly window. */
 export function columnVariant(
   slot: QuotaSlotId,
   readings: readonly (QuotaSlotReading | undefined)[]
@@ -282,7 +276,6 @@ const CLAUDE_PLAN_MULTIPLIERS: Record<string, number> = {
   plan_pro: 1,
 };
 
-/** Null when the plan label carries no multiplier (undifferentiated Max, Team, unknown). */
 export const claudePlanMultiplier = (planType: string | null | undefined): number | null =>
   (planType && CLAUDE_PLAN_MULTIPLIERS[planType]) || null;
 
@@ -297,11 +290,9 @@ export interface PoolAccount {
 export interface SlotPool {
   slot: QuotaSlotId;
   variant: QuotaSlotVariant;
-  /** Weighted mean of percent remaining over the covered accounts. */
   remainingPercent: number | null;
   covered: number;
   total: number;
-  /** False when no account in the group has this window. */
   available: boolean;
 }
 
@@ -317,8 +308,7 @@ export function buildGroupPools(
   const included = accounts.filter((account) => account.included);
   const claude = included.filter((account) => account.type === 'claude');
   const weighted =
-    claude.length > 0 &&
-    claude.every((account) => claudePlanMultiplier(account.planType) !== null);
+    claude.length > 0 && claude.every((account) => claudePlanMultiplier(account.planType) !== null);
   const weightOf = (account: PoolAccount) =>
     weighted && account.type === 'claude' ? (claudePlanMultiplier(account.planType) ?? 1) : 1;
 

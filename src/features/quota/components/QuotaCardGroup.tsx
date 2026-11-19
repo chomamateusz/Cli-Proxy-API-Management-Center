@@ -26,7 +26,6 @@ export interface QuotaCardGroupProps {
   loadedCount: number;
   pools: GroupPools | null;
   resolvedTheme: ResolvedTheme;
-  /** Null hides the router note. */
   routerStrategy: string | null;
   family?: { value: RouterFamily; onChange: (family: RouterFamily) => void } | null;
   children: ReactNode;
@@ -81,11 +80,7 @@ export function QuotaCardGroup({
             {t('quota_groups.loaded', { count: loadedCount, total: accountCount })}
           </span>
           {family && (
-            <div
-              className={styles.family}
-              role="group"
-              aria-label={t('quota_router.family_label')}
-            >
+            <div className={styles.family} role="group" aria-label={t('quota_router.family_label')}>
               <span className={styles.familyLabel}>{t('quota_router.family_label')}</span>
               {ROUTER_FAMILIES.map((option) => (
                 <button
@@ -110,9 +105,11 @@ export function QuotaCardGroup({
         )}
         {showPools &&
           (loadedCount === 0 ? (
-            <p className={styles.empty}>{t('quota_groups.nothing_loaded', {
+            <p className={styles.empty}>
+              {t('quota_groups.nothing_loaded', {
                 action: t('quota_management.refresh_all_credentials'),
-              })}</p>
+              })}
+            </p>
           ) : (
             <div
               className={styles.pools}

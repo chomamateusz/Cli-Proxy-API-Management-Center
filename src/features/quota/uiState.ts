@@ -134,7 +134,6 @@ export const writePersistedQuotaView = (view: QuotaView) => {
   }
 };
 
-/** Providers kept in their own Cards group; null when nothing valid is stored. */
 export const readPersistedQuotaGroups = (): QuotaProviderType[] | null => {
   if (typeof window === 'undefined') return null;
   try {

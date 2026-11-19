@@ -1,21 +1,13 @@
 /**
  * Provider quota card: identity, loading/error state, quota body, and actions.
  * Claude observations remain visible while refreshing or after a failed read.
- *
- * Providers with a slot mapping render aligned limit slots (five-hour, weekly, weekly model)
- * with everything of variable height below them; the others keep their own quota body.
  */
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
-import type {
-  ClaudeQuotaState,
-  CodexQuotaState,
-  ResolvedTheme,
-  XaiQuotaState,
-} from '@/types';
+import type { ClaudeQuotaState, CodexQuotaState, ResolvedTheme, XaiQuotaState } from '@/types';
 import {
   buildResetDisplay,
   formatInstantShort,
@@ -86,7 +78,6 @@ export type QuotaCardProps = {
   canEditEnd: boolean;
   endActions: CredentialEndActions;
   nowMs?: number;
-  /** Slot columns of the whole page; defaults to the provider's own slots. */
   slotColumns?: readonly QuotaSlotId[];
   /** Column label per slot, so a disabled slot reads like its column. */
   slotVariants?: Partial<Record<QuotaSlotId, QuotaSlotVariant>>;
@@ -412,7 +403,12 @@ export function QuotaCard(props: QuotaCardProps) {
     if (claudeQuota?.planType) {
       meta.push(
         <MetaItem key="plan" label={t('claude_quota.plan_label')}>
-          <span className={planValueClassForTier(resolveClaudeCardTier(claudeQuota.planType), quotaClasses)}>
+          <span
+            className={planValueClassForTier(
+              resolveClaudeCardTier(claudeQuota.planType),
+              quotaClasses
+            )}
+          >
             {t(`claude_quota.${claudeQuota.planType}`)}
           </span>
         </MetaItem>
@@ -452,7 +448,9 @@ export function QuotaCard(props: QuotaCardProps) {
     }
     if (xaiBilling) {
       const planKey =
-        xaiBilling.monthlyLimitCents === null ? undefined : XAI_PLAN_KEYS[xaiBilling.monthlyLimitCents];
+        xaiBilling.monthlyLimitCents === null
+          ? undefined
+          : XAI_PLAN_KEYS[xaiBilling.monthlyLimitCents];
       const planLabel =
         xaiBilling.planLabel ??
         (xaiBilling.mode === 'paid-health'
@@ -491,7 +489,11 @@ export function QuotaCard(props: QuotaCardProps) {
           : String(codexQuota.creditBalance),
       });
     }
-    if (xaiBilling && typeof xaiBilling.prepaidBalanceCents === 'number' && xaiBilling.prepaidBalanceCents > 0) {
+    if (
+      xaiBilling &&
+      typeof xaiBilling.prepaidBalanceCents === 'number' &&
+      xaiBilling.prepaidBalanceCents > 0
+    ) {
       extras.push({
         id: 'prepaid',
         label: t('xai_quota.prepaid'),
@@ -611,18 +613,16 @@ export function QuotaCard(props: QuotaCardProps) {
 
         {endControl}
 
-        {(showClaudeReset && claudeReset.lines.length > 0) || codexCredits.length > 0 ||
-        extraUsage || extras.length > 0 ? (
+        {(showClaudeReset && claudeReset.lines.length > 0) ||
+        codexCredits.length > 0 ||
+        extraUsage ||
+        extras.length > 0 ? (
           <div className={styles.sections}>
             {showClaudeReset && claudeReset.lines.length > 0 && (
               <QuotaCardSection
                 title={t('quota_cards.resets', { count: usableGrantCount(claudeReset.lines) })}
               >
-                <ClaudeGrantRows
-                  lines={claudeReset.lines}
-                  nowMs={nowMs}
-                  onUse={claudeReset.use}
-                />
+                <ClaudeGrantRows lines={claudeReset.lines} nowMs={nowMs} onUse={claudeReset.use} />
               </QuotaCardSection>
             )}
             {codexCredits.length > 0 && (

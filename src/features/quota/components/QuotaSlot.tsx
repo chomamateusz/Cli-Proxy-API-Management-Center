@@ -13,7 +13,6 @@ export interface QuotaSlotProps {
   remainingPercent?: number | null;
   reset?: ResetDisplay | null;
   soon?: boolean;
-  /** Replaces the reset line, for example a pooled bar's coverage. */
   note?: string;
   noteTitle?: string;
   classes: QuotaClassMap;

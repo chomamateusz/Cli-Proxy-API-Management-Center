@@ -49,9 +49,10 @@ const entries = (...types: QuotaProviderType[]) =>
 
 describe('group selection', () => {
   test('by default a provider with two or more accounts gets its own group', () => {
-    expect(defaultSeparateProviders(entries('xai', 'codex', 'claude', 'codex', 'claude'))).toEqual(
-      ['claude', 'codex']
-    );
+    expect(defaultSeparateProviders(entries('xai', 'codex', 'claude', 'codex', 'claude'))).toEqual([
+      'claude',
+      'codex',
+    ]);
     expect(defaultSeparateProviders(entries('claude', 'xai'))).toEqual([]);
   });
 

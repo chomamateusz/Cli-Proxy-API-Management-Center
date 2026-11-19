@@ -1,8 +1,3 @@
-/**
- * Cards view group rows: providers the user keeps separate, plus one "All others" group.
- * React-free so defaults and ordering are testable.
- */
-
 import { QUOTA_TAB_ORDER, type QuotaTabId } from './constants';
 import type { QuotaProviderType } from './providers/types';
 
@@ -11,17 +6,14 @@ export type QuotaGroupKind = 'provider' | 'others' | 'all';
 export interface QuotaCardGroup<T extends { type: QuotaProviderType }> {
   id: string;
   kind: QuotaGroupKind;
-  /** Set for provider groups. */
   type: QuotaProviderType | null;
   entries: T[];
 }
 
-/** Providers present in the list, in tab order. */
 export function presentProviders(entries: readonly { type: QuotaProviderType }[]) {
   return QUOTA_TAB_ORDER.filter((type) => entries.some((entry) => entry.type === type));
 }
 
-/** With nothing stored, a provider with two or more accounts gets its own group. */
 export function defaultSeparateProviders(
   entries: readonly { type: QuotaProviderType }[]
 ): QuotaProviderType[] {

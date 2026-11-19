@@ -1,8 +1,4 @@
-/**
- * Use-or-lose router order: the order in which the proxy's `UseOrLoseSelector` would pick
- * credentials for a new session (no session affinity), estimated from the readings this page
- * has loaded. Mirrors sdk/cliproxy/auth/selector_use_or_lose.go; React-free for tests.
- */
+/** Mirrors `UseOrLoseSelector` in the proxy's sdk/cliproxy/auth/selector_use_or_lose.go. */
 
 import type { AuthFileItem, ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { summarizeCooldowns } from '@/features/authFiles/cooldowns';
@@ -23,7 +19,6 @@ export type RouterFamily = (typeof ROUTER_FAMILIES)[number];
 export const isRouterFamily = (value: unknown): value is RouterFamily =>
   typeof value === 'string' && (ROUTER_FAMILIES as readonly string[]).includes(value);
 
-/** Providers whose quota the selector samples; every other provider keeps fill-first order. */
 export const ROUTER_SAMPLED_PROVIDERS: readonly QuotaProviderType[] = ['claude', 'codex'];
 
 export interface RouterWindow {
@@ -65,7 +60,13 @@ export interface RouterCandidate<T> {
 export type RouterTier = 'room' | 'capped' | 'limited';
 
 export type RouterPlacement =
-  | { kind: 'ranked'; position: number; tier: RouterTier; sampled: boolean; sampledProvider: boolean }
+  | {
+      kind: 'ranked';
+      position: number;
+      tier: RouterTier;
+      sampled: boolean;
+      sampledProvider: boolean;
+    }
   | { kind: 'out'; reason: RouterOutOfRotation };
 
 export interface RankedCandidate<T> {
@@ -126,7 +127,6 @@ const parseObserved = (value: unknown, fallbackMs: number): number => {
   return Number.isFinite(parsed) ? parsed : fallbackMs;
 };
 
-/** Readings the selector would sample; null when the page holds none for this credential. */
 export function routerReadingsFor(
   type: QuotaProviderType,
   quota: unknown,
@@ -165,10 +165,7 @@ export function routerReadingsFor(
   return null;
 }
 
-export function routerOutOfRotation(
-  file: AuthFileItem,
-  nowMs: number
-): RouterOutOfRotation | null {
+export function routerOutOfRotation(file: AuthFileItem, nowMs: number): RouterOutOfRotation | null {
   if (readCredentialEnd(file, nowMs).ended) return 'ended';
   if (file.disabled === true) return 'disabled';
   if (file.cooldownSnapshot && summarizeCooldowns(file.cooldownSnapshot, nowMs).credentialWide) {
@@ -234,10 +231,7 @@ function sampleFor(
     utilisation: weekly?.usedPercent ?? 0,
     sampled: readings !== null && windowUsable(weekly, readings.observedAtMs, nowMs),
     capped:
-      !credits &&
-      shortActive &&
-      hasUsage(short) &&
-      short.usedPercent >= settings.shortWindowCapPct,
+      !credits && shortActive && hasUsage(short) && short.usedPercent >= settings.shortWindowCapPct,
     atLimit: !credits && (atLimit || windowAtLimit(weekly, nowMs)),
   };
 }
@@ -292,7 +286,6 @@ function pickNext<T>(
 
 const OUT_ORDER: readonly RouterOutOfRotation[] = ['cooling', 'disabled', 'ended'];
 
-/** One provider's candidates in pick order, then the ones out of rotation. */
 export function rankProviderByRouter<T>(
   candidates: readonly RouterCandidate<T>[],
   family: RouterFamily,
@@ -328,7 +321,6 @@ export function rankProviderByRouter<T>(
   return [...ranked, ...out];
 }
 
-/** Ranks inside each provider and keeps the providers in the order they first appear. */
 export function rankByRouter<T>(
   candidates: readonly RouterCandidate<T>[],
   family: RouterFamily,

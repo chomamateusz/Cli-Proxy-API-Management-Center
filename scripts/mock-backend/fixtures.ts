@@ -46,7 +46,6 @@ export interface ClaudeFixture {
   plan: 'max5' | 'max20';
   sevenDay: WindowFixture;
   fable: WindowFixture;
-  /** Null: the account reports no five-hour window. */
   fiveHour: WindowFixture | null;
   opus?: WindowFixture;
   grants: ClaudeGrantFixture[];
@@ -57,7 +56,6 @@ export interface ClaudeFixture {
   /** Offset of the Stripe subscription_created_at; absent means no profile sample yet. */
   subscribedInMs?: number;
   planActive?: boolean;
-  /** Remaining seconds of a credential-wide cooldown reported in the credential list. */
   coolingForSeconds?: number;
 }
 

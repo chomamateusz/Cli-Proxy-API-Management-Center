@@ -108,8 +108,6 @@
   }
 }
 
-/* ---------- Router order badge ---------- */
-
 .orderBadge {
   flex: none;
   display: inline-flex;
@@ -152,8 +150,6 @@
 .orderTier {
   color: var(--warning-text);
 }
-
-/* ---------- Slot layout: meta row, slots, sections ---------- */
 
 .metaRow {
   display: flex;

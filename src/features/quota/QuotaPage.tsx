@@ -620,9 +620,7 @@ export function QuotaPage() {
           return {
             type: entry.type,
             included:
-              reading.loaded &&
-              !entry.file.disabled &&
-              !readCredentialEnd(entry.file, nowMs).ended,
+              reading.loaded && !entry.file.disabled && !readCredentialEnd(entry.file, nowMs).ended,
             planType: reading.planType,
             slots: reading.slots,
           };

@@ -210,19 +210,22 @@ describe('pooled group bars', () => {
   test('disabled, ended or unloaded accounts and missing windows are left out', () => {
     const { pools } = buildGroupPools(
       [
-        account('codex', null, { 'five-hour': reading('five-hour', 40), weekly: reading('weekly', 60) }),
+        account('codex', null, {
+          'five-hour': reading('five-hour', 40),
+          weekly: reading('weekly', 60),
+        }),
         account('codex', null, { weekly: reading('weekly', 20) }),
         account('codex', null, { weekly: reading('weekly', 0) }, false),
       ],
       ['five-hour', 'weekly', 'model']
     );
-    expect(pools.map((pool) => [pool.slot, pool.remainingPercent, pool.covered, pool.total])).toEqual(
-      [
-        ['five-hour', 40, 1, 3],
-        ['weekly', 40, 2, 3],
-        ['model', null, 0, 3],
-      ]
-    );
+    expect(
+      pools.map((pool) => [pool.slot, pool.remainingPercent, pool.covered, pool.total])
+    ).toEqual([
+      ['five-hour', 40, 1, 3],
+      ['weekly', 40, 2, 3],
+      ['model', null, 0, 3],
+    ]);
     expect(pools[2].available).toBe(false);
   });
 });
@@ -379,4 +382,3 @@ describe('aligned slot markup', () => {
     expect(markup).toContain('use-or-lose estimate for new sessions.');
   });
 });
-
