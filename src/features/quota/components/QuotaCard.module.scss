@@ -109,12 +109,17 @@
   }
 }
 
+// On the card's top edge, not in the header: beside the name it left about twelve characters of
+// it at six cards per row.
 .orderBadge {
-  flex: none;
+  position: absolute;
+  top: 0;
+  right: 14px;
+  z-index: 1;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   height: 20px;
   padding: 0 8px;
   border-radius: $radius-full;
@@ -124,11 +129,12 @@
   line-height: 1;
   white-space: nowrap;
   color: var(--text-secondary);
+  background: var(--bg-primary);
 
   &[data-kind='next'] {
     border-color: color-mix(in srgb, var(--success-color) 45%, var(--border-color));
     color: var(--success-color);
-    background: color-mix(in srgb, var(--success-color) 10%, transparent);
+    background: color-mix(in srgb, var(--success-color) 10%, var(--bg-primary));
   }
 
   &[data-kind='unranked'] {
@@ -137,9 +143,9 @@
   }
 
   &[data-kind='out'] {
-    border-color: transparent;
+    border-color: color-mix(in srgb, var(--error-color) 35%, var(--border-color));
     color: var(--error-color);
-    background: color-mix(in srgb, var(--error-color) 12%, transparent);
+    background: color-mix(in srgb, var(--error-color) 12%, var(--bg-primary));
   }
 }
 
