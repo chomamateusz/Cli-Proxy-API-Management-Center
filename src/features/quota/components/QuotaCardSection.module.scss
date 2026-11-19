@@ -72,6 +72,10 @@
   min-width: 0;
 }
 
+.panel[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .toggle,
   .chevron {

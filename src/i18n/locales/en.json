@@ -1702,7 +1702,7 @@
     "not_loaded": "Not loaded yet"
   },
   "quota_router": {
-    "next": "next",
+    "next": "Next",
     "position_label": "Router position {{position}}",
     "position_next_label": "Router position {{position}}, picked next",
     "tier_capped": "5-hour cap",
