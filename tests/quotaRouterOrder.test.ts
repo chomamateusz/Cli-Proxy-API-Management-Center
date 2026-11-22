@@ -8,10 +8,15 @@ import {
   readRouterSettings,
   routerOutOfRotation,
   routerReadingsFor,
+  routerResetGrantsFor,
   type RouterCandidate,
+  type RouterFamily,
   type RouterReadings,
+  type RouterResetGrant,
   type RouterSettings,
 } from '@/features/quota/routerOrder';
+import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
+import { parseAnthropicResetGrantStatus } from '@/services/api/claudeResetGrants';
 import type { QuotaTabId } from '@/features/quota/constants';
 import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { QuotaProviderType } from '@/features/quota/providers/types';
@@ -291,6 +296,138 @@ describe('use-or-lose router order', () => {
   });
 });
 
+const dateAt = (offset: number) => new Date(NOW + offset).toISOString();
+const grant = (overrides: Partial<RouterResetGrant> = {}): RouterResetGrant => ({
+  resetsLeft: 1,
+  startsAt: null,
+  endsAt: null,
+  paused: false,
+  clears: ['seven_day'],
+  ...overrides,
+});
+const steady = candidate('steady', readings([50, 3 * DAY], null, [50, 3 * DAY]));
+
+const ending = (
+  resetGrants: RouterResetGrant[],
+  endsIn = 16 * DAY,
+  value = readings([60, 6 * DAY], null, [60, 6 * DAY])
+) => candidate('ending', value, { endsAtMs: NOW + endsIn, resetGrants });
+
+function expectFirst(
+  list: RouterCandidate<string>[],
+  first: string,
+  settings = USE_OR_LOSE,
+  family: RouterFamily = 'all'
+) {
+  expect(order(list, settings, family)[0]).toBe(first);
+}
+
+describe('ending reset grants', () => {
+  test.each([
+    ['no grants, far end', [], 16 * DAY, 'steady'],
+    ['one grant, far end', [grant()], 16 * DAY, 'steady'],
+    ['two grants, far end', [grant(), grant()], 16 * DAY, 'ending'],
+    ['one grant, near end', [grant()], 9 * DAY, 'ending'],
+    ['one grant with two resets left', [grant({ resetsLeft: 2 })], 16 * DAY, 'ending'],
+    [
+      'earliest usable grant end',
+      [grant({ endsAt: dateAt(10 * DAY) }), grant({ endsAt: dateAt(DAY) })],
+      60 * DAY,
+      'ending',
+    ],
+    [
+      'grant for another window',
+      [grant({ resetsLeft: 2, endsAt: dateAt(DAY), clears: ['five_hour'] })],
+      16 * DAY,
+      'steady',
+    ],
+    [
+      'very large count still drains a near end',
+      [grant({ resetsLeft: 2 ** 31 })],
+      16 * DAY,
+      'ending',
+    ],
+    ['retreat is capped at 52 weeks', [grant({ resetsLeft: 53 })], (52 * 7 + 4) * DAY, 'steady'],
+  ] satisfies [string, RouterResetGrant[], number, string][])('%s', (_, grants, endsIn, first) =>
+    expectFirst([steady, ending(grants, endsIn)], first)
+  );
+
+  test('paused, exhausted, not-yet-started and expired grants do not bind', () => {
+    expectFirst(
+      [
+        steady,
+        ending([
+          grant({ paused: true, endsAt: dateAt(DAY) }),
+          grant({ resetsLeft: 0, endsAt: dateAt(DAY) }),
+          grant({ startsAt: dateAt(1), endsAt: dateAt(DAY) }),
+          grant({ endsAt: dateAt(0) }),
+          grant({ startsAt: dateAt(0) }),
+        ]),
+      ],
+      'steady'
+    );
+    expectFirst([steady, ending([grant({ startsAt: dateAt(0) })], 9 * DAY)], 'ending');
+  });
+
+  test('a past binding excludes a future reset inside the old tie hour', () => {
+    const soon = candidate('soon', readings([10, HOUR / 3]));
+    expectFirst([soon, ending([grant()], 7 * DAY - HOUR / 6)], 'ending');
+    expectFirst([soon, ending([grant()], 7 * DAY)], 'soon');
+    expectFirst([soon, ending([], -HOUR / 6)], 'ending');
+    expectFirst([soon, ending([], -HOUR / 6)], 'soon', {
+      ...USE_OR_LOSE,
+      drainEndingResets: false,
+    });
+  });
+
+  test('overdue bindings days apart and a binding at now tie on utilisation', () => {
+    const early = ending([grant(), grant()], 10 * DAY, readings([70, 6 * DAY]));
+    const late = ending([grant()], 6 * DAY, readings([20, 6 * DAY]));
+    const dueNow = ending([grant()], 7 * DAY, readings([10, 6 * DAY]));
+    expect(
+      order([
+        { ...early, item: 'early' },
+        { ...late, item: 'late' },
+      ])
+    ).toEqual(['late', 'early']);
+    expectFirst([{ ...early, item: 'early' }, dueNow], 'ending');
+  });
+
+  test('five-hour cap and weekly limit still yield to room', () => {
+    const grants = [grant(), grant()];
+    const capped = ending(grants, 16 * DAY, readings([60, 6 * DAY], [99, HOUR]));
+    const limited = ending(grants, 16 * DAY, readings([100, 6 * DAY]));
+    expect(order([steady, { ...capped, item: 'capped' }, { ...limited, item: 'limited' }])).toEqual(
+      ['steady', 'capped', 'limited']
+    );
+  });
+
+  test('turning off either drain setting disables the grant rule', () => {
+    expectFirst([steady, ending([grant(), grant()])], 'steady', {
+      ...USE_OR_LOSE,
+      drainEndingResets: false,
+    });
+    expectFirst([steady, ending([grant()], 9 * DAY)], 'steady', {
+      ...USE_OR_LOSE,
+      drainEndingCredentials: false,
+    });
+  });
+
+  test('Fable counts only grants for the weekly window actually ranked', () => {
+    const allModels = ending([grant({ resetsLeft: 2 })]);
+    const fableOnly = ending([grant({ resetsLeft: 2, clears: ['seven_day_overage_included'] })]);
+    expectFirst([steady, allModels], 'steady', USE_OR_LOSE, 'fable');
+    expectFirst([steady, fableOnly], 'ending', USE_OR_LOSE, 'fable');
+    expectFirst([steady, fableOnly], 'steady');
+    expectFirst(
+      [steady, { ...allModels, readings: readings([60, 6 * DAY], null, [0, -HOUR]) }],
+      'ending',
+      USE_OR_LOSE,
+      'fable'
+    );
+  });
+});
+
 describe('router inputs', () => {
   test('settings mirror the proxy defaults and validation', () => {
     expect(readRouterSettings(undefined)).toEqual(DEFAULT_ROUTER_SETTINGS);
@@ -298,16 +435,92 @@ describe('router inputs', () => {
       readRouterSettings({
         routing: {
           strategy: ' Use-Or-Lose ',
-          'use-or-lose': { 'short-window-cap-pct': 80, 'drain-ending-credentials': false },
+          'use-or-lose': {
+            'short-window-cap-pct': 80,
+            'drain-ending-credentials': false,
+            'drain-ending-resets': false,
+          },
         },
       })
-    ).toEqual({ strategy: 'use-or-lose', shortWindowCapPct: 80, drainEndingCredentials: false });
+    ).toEqual({
+      strategy: 'use-or-lose',
+      shortWindowCapPct: 80,
+      drainEndingCredentials: false,
+      drainEndingResets: false,
+    });
     expect(
       readRouterSettings({ routing: { 'use-or-lose': { 'short-window-cap-pct': 1 } } })
         .shortWindowCapPct
     ).toBe(95);
     expect(normalizeRouterStrategy('nr')).toBe('nearest-reset');
     expect(normalizeRouterStrategy('something')).toBe('round-robin');
+  });
+
+  test('card status wins over the proxy sample, even when the card has no grants', () => {
+    const proxySample = { weekly: 2, total: 3, expires_at: null, sampled_at: dateAt(-DAY) };
+    const file = normalizeAuthFilesResponse(
+      {
+        files: [
+          {
+            name: 'ending@example.com.json',
+            auth_index: 'ending',
+            fleet_reset_grants: proxySample,
+          },
+        ],
+      },
+      NOW
+    ).files[0];
+    const status = parseAnthropicResetGrantStatus({
+      eligible: true,
+      grants: [
+        {
+          id: 'fable-grant',
+          resets_total: 2,
+          resets_left: 2,
+          clears: ['seven_day_overage_included'],
+        },
+      ],
+    })!;
+    const card = { authIndex: 'ending', sampledAtMs: NOW, status };
+    const rankedWith = (sample: typeof card | undefined, family: RouterFamily, at = NOW) => {
+      const resetGrants = routerResetGrantsFor(file, sample, at);
+      const candidates = [steady, { ...ending([]), resetGrants }];
+      return rankByRouter(candidates, family, USE_OR_LOSE, at)[0].candidate.item;
+    };
+    expect(rankedWith(card, 'all')).toBe('steady');
+    expect(rankedWith(card, 'fable')).toBe('ending');
+    expect(rankedWith({ ...card, status: { ...status, grants: [] } }, 'all')).toBe('steady');
+    expect(rankedWith({ ...card, authIndex: 'previous' }, 'all')).toBe('ending');
+    expect(rankedWith({ ...card, sampledAtMs: NOW - DAY - 1 }, 'all')).toBe('ending');
+    expect(rankedWith(undefined, 'all')).toBe('ending');
+    expect(rankedWith(undefined, 'fable')).toBe('steady');
+    expect(rankedWith(undefined, 'all', NOW + 1)).toBe('steady');
+    expect(routerResetGrantsFor({ name: file.name }, undefined, NOW)).toEqual([]);
+  });
+
+  test('the proxy fallback uses weekly, not total, and respects the reported expiry', () => {
+    const grantsAt = (expiresAt: string | null) => {
+      const file = normalizeAuthFilesResponse(
+        {
+          files: [
+            {
+              name: 'ending@example.com.json',
+              fleet_reset_grants: {
+                weekly: 1,
+                total: 3,
+                sampled_at: dateAt(0),
+                expires_at: expiresAt,
+              },
+            },
+          ],
+        },
+        NOW
+      ).files[0];
+      return [steady, { ...ending([]), resetGrants: routerResetGrantsFor(file, undefined, NOW) }];
+    };
+    expectFirst(grantsAt(null), 'steady');
+    expectFirst(grantsAt(dateAt(DAY)), 'ending');
+    expectFirst(grantsAt(dateAt(0)), 'steady');
   });
 
   test('readings come from the loaded Claude and Codex windows', () => {

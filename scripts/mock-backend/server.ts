@@ -8,6 +8,7 @@ import {
   codexFixtures,
   issuedKeyFixtures,
   xaiFixture,
+  type ClaudeGrantFixture,
   type EndFixture,
   type WindowFixture,
 } from './fixtures';
@@ -147,11 +148,25 @@ const cooldowns = (seconds: number | undefined) =>
         },
       ];
 
+const grantWindows = (grant: ClaudeGrantFixture) => grant.clears ?? ['five_hour', 'seven_day'];
+
+const fleetResetGrantSample = (grants: ClaudeGrantFixture[], nowMs: number) => {
+  const usable = grants.filter((grant) => grant.left > 0 && startedAt + grant.endsInMs > nowMs);
+  const weekly = usable.filter((grant) => grantWindows(grant).includes('seven_day'));
+  return {
+    weekly: weekly.reduce((count, grant) => count + grant.left, 0),
+    total: usable.reduce((count, grant) => count + grant.left, 0),
+    expires_at: weekly.length > 0 ? iso(Math.min(...weekly.map((grant) => grant.endsInMs))) : null,
+    sampled_at: new Date(nowMs).toISOString(),
+  };
+};
+
 const credentials = () => [
   ...claudeFixtures.map((fixture) => ({
     ...entry('claude', claudeFileName(fixture.email), fixture.authIndex, fixture.email),
     ...(fixture.note ? { note: fixture.note } : {}),
     ...credentialEnds.fields(claudeFileName(fixture.email), Date.now()),
+    fleet_reset_grants: fleetResetGrantSample(fixture.grants, Date.now()),
     success: fixture.traffic.reduce((sum, count) => sum + count, 0),
     recent_requests: recentRequests(fixture.traffic),
     cooldowns: cooldowns(fixture.coolingForSeconds),
@@ -218,7 +233,7 @@ const answerClaude = (claude: (typeof claudeFixtures)[number], url: string) => {
           resets_left: grant.left,
           starts_at: iso(-7 * 24 * 60 * 60 * 1000),
           ends_at: iso(grant.endsInMs),
-          clears: ['five_hour', 'seven_day'],
+          clears: grantWindows(grant),
           paused: false,
           usable_now: true,
           use_requires_limit: grant.requiresLimit ?? false,

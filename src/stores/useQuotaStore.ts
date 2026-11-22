@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { getQuotaCacheFileName } from '@/utils/quota/identity';
+import type { ResetGrantStatusSample } from '@/features/quota/providers/claude/resetGrantSupply';
 import type {
   AntigravityQuotaState,
   ClaudeQuotaState,
@@ -22,6 +23,7 @@ interface QuotaStoreState {
   fileGenerations: Record<string, number>;
   antigravityQuota: Record<string, AntigravityQuotaState>;
   claudeQuota: Record<string, ClaudeQuotaState>;
+  claudeResetGrantSamples: Record<string, ResetGrantStatusSample>;
   codexQuota: Record<string, CodexQuotaState>;
   devinQuota: Record<string, DevinQuotaState>;
   kimiQuota: Record<string, KimiQuotaState>;
@@ -30,6 +32,9 @@ interface QuotaStoreState {
   xaiQuota: Record<string, XaiQuotaState>;
   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
+  setClaudeResetGrantSamples: (
+    updater: QuotaUpdater<Record<string, ResetGrantStatusSample>>
+  ) => void;
   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
   setDevinQuota: (updater: QuotaUpdater<Record<string, DevinQuotaState>>) => void;
   setKimiQuota: (updater: QuotaUpdater<Record<string, KimiQuotaState>>) => void;
@@ -51,6 +56,7 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
   fileGenerations: {},
   antigravityQuota: {},
   claudeQuota: {},
+  claudeResetGrantSamples: {},
   codexQuota: {},
   devinQuota: {},
   kimiQuota: {},
@@ -91,6 +97,10 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
       }
       return { claudeQuota: retained };
     }),
+  setClaudeResetGrantSamples: (updater) =>
+    set((state) => ({
+      claudeResetGrantSamples: resolveUpdater(updater, state.claudeResetGrantSamples),
+    })),
   setCodexQuota: (updater) =>
     set((state) => ({
       codexQuota: resolveUpdater(updater, state.codexQuota),
@@ -135,6 +145,7 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
           fileGenerations,
           antigravityQuota: omitNames(state.antigravityQuota),
           claudeQuota: omitNames(state.claudeQuota),
+          claudeResetGrantSamples: omitNames(state.claudeResetGrantSamples),
           codexQuota: omitNames(state.codexQuota),
           devinQuota: omitNames(state.devinQuota),
           kimiQuota: omitNames(state.kimiQuota),
@@ -148,6 +159,7 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
         fileGenerations: {},
         antigravityQuota: {},
         claudeQuota: {},
+        claudeResetGrantSamples: {},
         codexQuota: {},
         devinQuota: {},
         kimiQuota: {},

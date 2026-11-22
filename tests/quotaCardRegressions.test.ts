@@ -57,6 +57,15 @@ describe('reset count independent of account blockers', () => {
     expect(usableGrantCount(planned, NOW + 1000)).toBe(0);
   });
 
+  test('sums remaining resets across usable grants, ignoring paused grants', () => {
+    const active = lines([
+      grant({ id: 'double', resetsLeft: 2, usableNow: false }),
+      grant({ id: 'single' }),
+      grant({ id: 'paused', resetsLeft: 2, paused: true }),
+    ]);
+    expect(usableGrantCount(active, NOW)).toBe(3);
+  });
+
   test('starts at the boundary, excludes pending ghosts and accepts unknown dates', () => {
     const active = lines([grant({ startsAt: new Date(NOW).toISOString(), endsAt: null })]);
     expect(usableGrantCount(active, NOW)).toBe(1);

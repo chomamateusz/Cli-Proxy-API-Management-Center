@@ -93,6 +93,7 @@ import {
   readRouterSettings,
   routerOutOfRotation,
   routerReadingsFor,
+  routerResetGrantsFor,
   type RouterFamily,
   type RouterPlacement,
 } from './routerOrder';
@@ -247,6 +248,7 @@ export function QuotaPage() {
 
   const antigravityQuota = useQuotaStore((state) => state.antigravityQuota);
   const claudeQuota = useQuotaStore((state) => state.claudeQuota);
+  const claudeResetGrantSamples = useQuotaStore((state) => state.claudeResetGrantSamples);
   const codexQuota = useQuotaStore((state) => state.codexQuota);
   const devinQuota = useQuotaStore((state) => state.devinQuota);
   const kimiQuota = useQuotaStore((state) => state.kimiQuota);
@@ -337,6 +339,14 @@ export function QuotaPage() {
               priority: entry.file.priority ?? 0,
               endsAtMs: readCredentialEnd(entry.file, sortNow).endsAtMs,
               readings: routerReadingsFor(entry.type, getQuota(entry), sortNow),
+              resetGrants:
+                entry.type === 'claude'
+                  ? routerResetGrantsFor(
+                      entry.file,
+                      claudeResetGrantSamples[entry.file.name],
+                      sortNow
+                    )
+                  : undefined,
               outOfRotation: routerOutOfRotation(entry.file, sortNow),
             }),
             tab,
@@ -346,7 +356,17 @@ export function QuotaPage() {
             sortNow
           )
         : null,
-    [entries, getQuota, routerFamily, routerSettings, search, sortMode, sortNow, tab]
+    [
+      claudeResetGrantSamples,
+      entries,
+      getQuota,
+      routerFamily,
+      routerSettings,
+      search,
+      sortMode,
+      sortNow,
+      tab,
+    ]
   );
   const routerPlacements = useMemo(
     () =>
@@ -429,17 +449,22 @@ export function QuotaPage() {
     );
     entries.forEach((entry) => survivorsByType.get(entry.type)?.add(getQuotaCacheKey(entry.file)));
 
+    const prune = <T,>(prev: Record<string, T>, survivors: Set<string>) => {
+      const staleKeys = Object.keys(prev).filter((name) => !survivors.has(name));
+      if (staleKeys.length === 0) return prev;
+      const next = { ...prev };
+      staleKeys.forEach((name) => delete next[name]);
+      return next;
+    };
     QUOTA_TAB_ORDER.forEach((type) => {
       const survivors = survivorsByType.get(type) ?? new Set<string>();
       const setQuota = getQuotaSetter(QUOTA_ADAPTERS[type]);
-      setQuota((prev) => {
-        const staleKeys = Object.keys(prev).filter((name) => !survivors.has(name));
-        if (staleKeys.length === 0) return prev;
-        const next = { ...prev };
-        staleKeys.forEach((name) => delete next[name]);
-        return next;
-      });
+      setQuota((prev) => prune(prev, survivors));
     });
+    const claudeNames = new Set(
+      entries.filter((entry) => entry.type === 'claude').map((entry) => entry.file.name)
+    );
+    useQuotaStore.getState().setClaudeResetGrantSamples((prev) => prune(prev, claudeNames));
   }, [entries, error, filesGeneration, loading, sessionGeneration]);
 
   /* ---------- 加载与操作 ---------- */

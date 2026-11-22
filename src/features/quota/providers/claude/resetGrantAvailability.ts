@@ -3,6 +3,7 @@ import {
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import { parseIsoToMs } from '@/utils/quota';
+import { usableResetCount } from './resetGrantSupply';
 
 export type ResetGrantBlock =
   | NonNullable<ReturnType<typeof anthropicResetGrantBlocker>>
@@ -41,17 +42,13 @@ export interface ResetGrantLine {
   resetsTotal: number | null;
   endsAt: string | null;
   startsAt?: string | null;
+  paused?: boolean;
   retry: boolean;
   block: ResetGrantActionBlock | null;
 }
 
 export const usableGrantCount = (lines: readonly ResetGrantLine[], nowMs: number): number =>
-  lines.filter(
-    (line) =>
-      (line.resetsLeft ?? 0) > 0 &&
-      (parseIsoToMs(line.startsAt) ?? -Infinity) <= nowMs &&
-      (parseIsoToMs(line.endsAt) ?? Infinity) > nowMs
-  ).length;
+  lines.reduce((total, line) => total + usableResetCount(line, nowMs), 0);
 
 /** A pending claim stays listed after upstream drops its grant, so Retry stays reachable. */
 export function planResetGrantLines(
@@ -81,6 +78,7 @@ export function planResetGrantLines(
       resetsTotal: grant.resetsTotal,
       endsAt: grant.endsAt,
       startsAt: grant.startsAt,
+      paused: grant.paused,
       ...action(grant.id),
     }));
   if (pending && !lines.some((line) => line.id === pending.grantId)) {
