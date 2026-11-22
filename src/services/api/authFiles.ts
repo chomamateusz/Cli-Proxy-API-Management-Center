@@ -11,6 +11,7 @@ import {
   type AuthFileItem,
   type AuthFilesResponse,
   type CredentialEndWarning,
+  type FleetResetGrantSample,
 } from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
@@ -21,6 +22,7 @@ import {
   normalizeUsageTotal,
 } from '@/utils/recentRequests';
 import { parseTimestampMs } from '@/utils/timestamp';
+import { parseIsoToMs } from '@/utils/quota/resetInstants';
 import { normalizeAuthFileCooldowns, normalizeCooldownTimestamp } from './authFileCooldowns';
 
 type AuthFileStatusResponse = { status: string; disabled: boolean };
@@ -199,6 +201,25 @@ const readCredentialEndFields = (entry: AuthFileEntry): Partial<AuthFileItem> =>
   };
 };
 
+const isResetCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+
+const readFleetResetGrantSample = (value: unknown): FleetResetGrantSample | undefined => {
+  if (!isRecord(value)) return;
+  const { weekly, total, expires_at: expiresAt, sampled_at: sampledAt } = value;
+  const sampledAtMs = parseIsoToMs(sampledAt);
+  if (
+    !isResetCount(weekly) ||
+    !isResetCount(total) ||
+    weekly > total ||
+    sampledAtMs === null ||
+    (expiresAt != null && (typeof expiresAt !== 'string' || parseIsoToMs(expiresAt) === null))
+  ) {
+    return;
+  }
+  return { weekly, total, expiresAt: expiresAt ?? null, sampledAtMs };
+};
+
 const readDateField = (entry: AuthFileEntry): number => {
   const candidates = [entry['modtime'], entry['updated_at'], entry['last_refresh']];
 
@@ -353,6 +374,7 @@ const normalizeAuthFileEntry = (
     weight,
     ...(note ? { note } : {}),
     ...readCredentialEndFields(entry),
+    fleetResetGrants: readFleetResetGrantSample(entry.fleet_reset_grants),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),
   };

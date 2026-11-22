@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useNow } from '@/hooks/useNow';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores';
+import {
+  captureQuotaCacheGeneration,
+  commitIfQuotaCacheCurrent,
+  useQuotaStore,
+} from '@/stores/useQuotaStore';
 import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
@@ -36,8 +41,9 @@ export function useClaudeResetGrants(
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const showNotification = useNotificationStore((state) => state.showNotification);
   const now = useNow();
+  const name = file.name;
   const authIndex = normalizeAuthIndex(file.auth_index ?? file.authIndex);
-  const key = JSON.stringify([file.name, authIndex]);
+  const key = JSON.stringify([name, authIndex]);
   const [status, setStatus] = useState<AnthropicResetGrantStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -48,6 +54,7 @@ export function useClaudeResetGrants(
     const version = ++generation.current;
     setStatus(null);
     if (!enabled || disabled || !sessionActive || !authIndex) return;
+    const cacheGeneration = captureQuotaCacheGeneration(name);
     let cancelled = false;
     const current = () =>
       !cancelled && version === generation.current && session === apiClient.getConnectionRevision();
@@ -57,6 +64,13 @@ export function useClaudeResetGrants(
           if (current()) {
             setStatus(result);
             setMessage('');
+            const sample = { authIndex, sampledAtMs: Date.now(), status: result };
+            commitIfQuotaCacheCurrent(cacheGeneration, () => {
+              useQuotaStore.getState().setClaudeResetGrantSamples((prev) => ({
+                ...prev,
+                [name]: sample,
+              }));
+            });
           }
         },
         (error: unknown) => {
@@ -75,7 +89,7 @@ export function useClaudeResetGrants(
       cancelRead();
       generation.current += 1;
     };
-  }, [authIndex, key, enabled, disabled, sessionActive, session, refreshToken, reload]);
+  }, [authIndex, name, enabled, disabled, sessionActive, session, refreshToken, reload]);
 
   const operation = resetGrantOperations.inspect(key);
   const pending = operation && !operation.code ? operation : undefined;
@@ -104,6 +118,7 @@ export function useClaudeResetGrants(
       onConfirm: async () => {
         if (!current() || lock.current || useAuthStore.getState().connectionStatus !== 'connected')
           return;
+        const cacheGeneration = captureQuotaCacheGeneration(name);
         lock.current = true;
         setBusy(true);
         try {
@@ -140,6 +155,16 @@ export function useClaudeResetGrants(
           // Release the local lock regardless, but never refresh a replacement account.
           setBusy(false);
           setReload((value) => value + 1);
+          if (session === apiClient.getConnectionRevision()) {
+            commitIfQuotaCacheCurrent(cacheGeneration, () => {
+              useQuotaStore.getState().setClaudeResetGrantSamples((prev) => {
+                if (prev[name]?.authIndex !== authIndex) return prev;
+                const next = { ...prev };
+                delete next[name];
+                return next;
+              });
+            });
+          }
           if (current()) onRefresh();
         }
       },

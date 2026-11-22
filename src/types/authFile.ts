@@ -62,6 +62,13 @@ export interface CredentialEndWarning {
   until?: string;
 }
 
+export interface FleetResetGrantSample {
+  weekly: number;
+  total: number;
+  expiresAt: string | null;
+  sampledAtMs: number;
+}
+
 export interface AuthFileItem {
   name: string;
   siwcBindSupported?: boolean;
@@ -107,6 +114,7 @@ export interface AuthFileItem {
   fleetBillingAnchor?: string;
   /** Last successful provider subscription sample. */
   fleetEndCheckedAt?: string;
+  fleetResetGrants?: FleetResetGrantSample;
   success?: unknown;
   failed?: unknown;
   /** Cumulative success/failure counts normalized by the API boundary. */

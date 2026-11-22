@@ -1,17 +1,26 @@
 /** Mirrors `UseOrLoseSelector` in the proxy's sdk/cliproxy/auth/selector_use_or_lose.go. */
 
 import type { AuthFileItem, ClaudeQuotaState, CodexQuotaState } from '@/types';
+import type { AnthropicResetGrant } from '@/services/api/claudeResetGrants';
 import { summarizeCooldowns } from '@/features/authFiles/cooldowns';
 import { isRecord } from '@/utils/helpers';
+import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaTabId } from './constants';
 import { readCredentialEnd } from './credentialEnd';
 import { filterEntriesBySearch, filterEntriesByTab, type QuotaFileEntry } from './logic';
 import type { QuotaProviderType } from './providers/types';
+import {
+  resetGrantTimeMs,
+  usableResetCount,
+  type ResetGrantStatusSample,
+} from './providers/claude/resetGrantSupply';
 
 const HOUR_MS = 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * HOUR_MS;
 const SHORT_WINDOW_MS = 5 * HOUR_MS;
 const IDLE_SAMPLE_AGE_MS = 15 * 60 * 1000;
+const MAX_RESET_WEEKS = 52;
+const RESET_GRANT_SAMPLE_MAX_AGE_MS = 24 * HOUR_MS;
 
 export const DEFAULT_SHORT_WINDOW_CAP_PCT = 95;
 
@@ -40,15 +49,22 @@ export interface RouterSettings {
   strategy: string;
   shortWindowCapPct: number;
   drainEndingCredentials: boolean;
+  drainEndingResets: boolean;
 }
 
 export const DEFAULT_ROUTER_SETTINGS: RouterSettings = {
   strategy: 'round-robin',
   shortWindowCapPct: DEFAULT_SHORT_WINDOW_CAP_PCT,
   drainEndingCredentials: true,
+  drainEndingResets: true,
 };
 
 export type RouterOutOfRotation = 'cooling' | 'disabled' | 'ended';
+
+export type RouterResetGrant = Pick<
+  AnthropicResetGrant,
+  'resetsLeft' | 'startsAt' | 'endsAt' | 'paused' | 'clears'
+>;
 
 export interface RouterCandidate<T> {
   item: T;
@@ -56,6 +72,7 @@ export interface RouterCandidate<T> {
   priority: number;
   endsAtMs: number | null;
   readings: RouterReadings | null;
+  resetGrants?: readonly RouterResetGrant[];
   outOfRotation: RouterOutOfRotation | null;
 }
 
@@ -107,6 +124,8 @@ export function readRouterSettings(rawConfig: unknown): RouterSettings {
       typeof cap === 'number' && cap > 1 && cap <= 100 ? cap : DEFAULT_SHORT_WINDOW_CAP_PCT,
     drainEndingCredentials:
       readPath(rawConfig, ['routing', 'use-or-lose', 'drain-ending-credentials']) !== false,
+    drainEndingResets:
+      readPath(rawConfig, ['routing', 'use-or-lose', 'drain-ending-resets']) !== false,
   };
 }
 
@@ -167,6 +186,34 @@ export function routerReadingsFor(
   return null;
 }
 
+export function routerResetGrantsFor(
+  file: AuthFileItem,
+  cardSample: ResetGrantStatusSample | undefined,
+  nowMs: number
+): readonly RouterResetGrant[] {
+  const fresh = (sampledAtMs: number) => nowMs - sampledAtMs <= RESET_GRANT_SAMPLE_MAX_AGE_MS;
+  const proxySample =
+    file.fleetResetGrants && fresh(file.fleetResetGrants.sampledAtMs) ? file.fleetResetGrants : null;
+  if (
+    cardSample &&
+    cardSample.authIndex === normalizeAuthIndex(file.auth_index ?? file.authIndex) &&
+    fresh(cardSample.sampledAtMs) &&
+    (proxySample === null || cardSample.sampledAtMs >= proxySample.sampledAtMs)
+  ) {
+    return cardSample.status.grants;
+  }
+  if (proxySample === null) return [];
+  return [
+    {
+      resetsLeft: proxySample.weekly,
+      startsAt: null,
+      endsAt: proxySample.expiresAt,
+      paused: false,
+      clears: ['seven_day'],
+    },
+  ];
+}
+
 export function routerOutOfRotation(file: AuthFileItem, nowMs: number): RouterOutOfRotation | null {
   if (readCredentialEnd(file, nowMs).ended) return 'ended';
   if (file.disabled === true) return 'disabled';
@@ -199,6 +246,27 @@ const windowAtLimit = (window: RouterWindow | null, nowMs: number) =>
   window.resetAtMs > nowMs &&
   window.usedPercent >= 100;
 
+const drainsEndingResets = (settings: RouterSettings) =>
+  settings.drainEndingCredentials && settings.drainEndingResets;
+
+function endingResetBinding(
+  endsAtMs: number,
+  grants: readonly RouterResetGrant[],
+  window: AnthropicResetGrant['clears'][number],
+  nowMs: number
+): number {
+  let resets = 0;
+  let earliestExpiry = Infinity;
+  for (const grant of grants) {
+    if (!grant.clears.includes(window)) continue;
+    const count = usableResetCount(grant, nowMs);
+    if (count === 0) continue;
+    resets += count;
+    earliestExpiry = Math.min(earliestExpiry, resetGrantTimeMs(grant.endsAt) ?? Infinity);
+  }
+  return Math.min(endsAtMs - Math.min(resets, MAX_RESET_WEEKS) * WEEK_MS, earliestExpiry);
+}
+
 function sampleFor(
   candidate: RouterCandidate<unknown>,
   family: RouterFamily,
@@ -207,11 +275,15 @@ function sampleFor(
 ): Sample {
   const readings = candidate.readings;
   let weekly: RouterWindow | null = readings?.weekly ?? null;
+  let grantWindow: AnthropicResetGrant['clears'][number] = 'seven_day';
   let atLimit = windowAtLimit(weekly, nowMs);
   if (readings && candidate.provider === 'claude' && family === 'fable') {
     const fable = readings.fable;
     if (readings.observedAtMs + WEEK_MS > nowMs) atLimit = atLimit || windowAtLimit(fable, nowMs);
-    if (windowUsable(fable, readings.observedAtMs, nowMs)) weekly = fable;
+    if (windowUsable(fable, readings.observedAtMs, nowMs)) {
+      weekly = fable;
+      grantWindow = 'seven_day_overage_included';
+    }
   }
   const short = readings?.short ?? null;
   const shortActive =
@@ -221,12 +293,11 @@ function sampleFor(
       : (readings?.observedAtMs ?? 0) + SHORT_WINDOW_MS > nowMs);
   const credits = readings?.creditsAvailable === true;
   let resetAtMs = weekly?.resetAtMs ?? null;
-  if (
-    settings.drainEndingCredentials &&
-    candidate.endsAtMs !== null &&
-    (resetAtMs === null || candidate.endsAtMs < resetAtMs)
-  ) {
-    resetAtMs = candidate.endsAtMs;
+  if (settings.drainEndingCredentials && candidate.endsAtMs !== null) {
+    const binding = settings.drainEndingResets
+      ? endingResetBinding(candidate.endsAtMs, candidate.resetGrants ?? [], grantWindow, nowMs)
+      : candidate.endsAtMs;
+    resetAtMs = Math.min(resetAtMs ?? Infinity, binding);
   }
   return {
     resetAtMs,
@@ -246,7 +317,9 @@ const resetOrder = (value: number | null) => value ?? Number.NEGATIVE_INFINITY;
 
 function pickNext<T>(
   pool: readonly RouterCandidate<T>[],
-  samples: Map<RouterCandidate<T>, Sample>
+  samples: Map<RouterCandidate<T>, Sample>,
+  settings: RouterSettings,
+  nowMs: number
 ): RouterCandidate<T> {
   const room = pool.filter((candidate) => tierOf(samples.get(candidate)!) === 'room');
   const capped = pool.filter((candidate) => tierOf(samples.get(candidate)!) === 'capped');
@@ -262,13 +335,19 @@ function pickNext<T>(
       earliest = earliest === null ? sample.resetAtMs : Math.min(earliest, sample.resetAtMs);
     }
   }
+  const tieUntil =
+    earliest === null
+      ? null
+      : earliest < nowMs && drainsEndingResets(settings)
+        ? nowMs
+        : earliest + HOUR_MS;
   let selected = ordered[0];
   let found = false;
   for (const candidate of ordered) {
     const sample = samples.get(candidate)!;
     if (
       !sample.sampled ||
-      (earliest !== null && (sample.resetAtMs === null || sample.resetAtMs > earliest + HOUR_MS))
+      (tieUntil !== null && (sample.resetAtMs === null || sample.resetAtMs > tieUntil))
     ) {
       continue;
     }
@@ -301,7 +380,7 @@ export function rankProviderByRouter<T>(
   const ranked: RankedCandidate<T>[] = [];
   let remaining = [...inRotation];
   while (remaining.length > 0) {
-    const next = pickNext(remaining, samples);
+    const next = pickNext(remaining, samples, settings, nowMs);
     const sample = samples.get(next)!;
     ranked.push({
       candidate: next,

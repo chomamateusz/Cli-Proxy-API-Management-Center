@@ -14,6 +14,7 @@ export interface ClaudeGrantFixture {
   label: string;
   left: number;
   endsInMs: number;
+  clears?: ('five_hour' | 'seven_day' | 'seven_day_overage_included')[];
   requiresLimit?: boolean;
 }
 
@@ -173,6 +174,18 @@ export const claudeFixtures: ClaudeFixture[] = [
     traffic: busy(2),
     subscribedInMs: -120 * DAY_MS,
     coolingForSeconds: 25 * 60,
+  },
+  {
+    email: 'ending-weekly@example.com',
+    authIndex: 'claude-7',
+    plan: 'max5',
+    sevenDay: { used: 60, resetInMs: 5 * DAY_MS },
+    fable: { used: 20, resetInMs: 5 * DAY_MS },
+    fiveHour: { used: 25, resetInMs: 2 * HOUR_MS },
+    grants: [{ label: 'Weekly reset', left: 1, endsInMs: 7 * DAY_MS, clears: ['seven_day'] }],
+    extraUsage: EXTRA_USAGE_OFF,
+    traffic: quiet(),
+    end: { source: 'manual', inMs: 7 * DAY_MS + 12 * HOUR_MS },
   },
 ];
 
