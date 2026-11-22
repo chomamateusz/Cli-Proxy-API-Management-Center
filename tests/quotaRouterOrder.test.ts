@@ -498,6 +498,31 @@ describe('router inputs', () => {
     expect(routerResetGrantsFor({ name: file.name }, undefined, NOW)).toEqual([]);
   });
 
+  test("a card status older than the proxy sample does not override it", () => {
+    const file = normalizeAuthFilesResponse(
+      {
+        files: [
+          {
+            name: "ending@example.com.json",
+            auth_index: "ending",
+            fleet_reset_grants: { weekly: 2, total: 2, expires_at: null, sampled_at: dateAt(-HOUR) },
+          },
+        ],
+      },
+      NOW
+    ).files[0];
+    const status = parseAnthropicResetGrantStatus({ eligible: true, grants: [] })!;
+    const first = (sampledAtMs: number) =>
+      rankByRouter(
+        [steady, { ...ending([]), resetGrants: routerResetGrantsFor(file, { authIndex: "ending", sampledAtMs, status }, NOW) }],
+        "all",
+        USE_OR_LOSE,
+        NOW
+      )[0].candidate.item;
+    expect(first(NOW - 2 * HOUR)).toBe("ending");
+    expect(first(NOW - HOUR / 2)).toBe("steady");
+  });
+
   test('the proxy fallback uses weekly, not total, and respects the reported expiry', () => {
     const grantsAt = (expiresAt: string | null) => {
       const file = normalizeAuthFilesResponse(

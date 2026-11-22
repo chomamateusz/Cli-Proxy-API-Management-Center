@@ -191,15 +191,18 @@ export function routerResetGrantsFor(
   cardSample: ResetGrantStatusSample | undefined,
   nowMs: number
 ): readonly RouterResetGrant[] {
+  const fresh = (sampledAtMs: number) => nowMs - sampledAtMs <= RESET_GRANT_SAMPLE_MAX_AGE_MS;
+  const proxySample =
+    file.fleetResetGrants && fresh(file.fleetResetGrants.sampledAtMs) ? file.fleetResetGrants : null;
   if (
     cardSample &&
     cardSample.authIndex === normalizeAuthIndex(file.auth_index ?? file.authIndex) &&
-    nowMs - cardSample.sampledAtMs <= RESET_GRANT_SAMPLE_MAX_AGE_MS
+    fresh(cardSample.sampledAtMs) &&
+    (proxySample === null || cardSample.sampledAtMs >= proxySample.sampledAtMs)
   ) {
     return cardSample.status.grants;
   }
-  const proxySample = file.fleetResetGrants;
-  if (!proxySample || nowMs - proxySample.sampledAtMs > RESET_GRANT_SAMPLE_MAX_AGE_MS) return [];
+  if (proxySample === null) return [];
   return [
     {
       resetsLeft: proxySample.weekly,
